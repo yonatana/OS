@@ -13,6 +13,8 @@
 
 #define MAXARGS 10
 
+char ** PATH;
+
 struct cmd {
   int type;
 };
@@ -150,6 +152,7 @@ main(void)
 {
   static char buf[100];
   int fd;
+  PATH=0;
   
   // Assumes three file descriptors open.
   //open file descriptors
@@ -170,9 +173,50 @@ main(void)
         printf(2, "cannot cd %s\n", buf+3);
       continue;
     }
-    if(buf[0]=='e' && buf[1]=='x'&& buf[2]=='p'&& buf[3]=='o'&& buf[4]=='r'&& buf[5]=='t')
-     printf(2, "fuck u %d\n", 1);
+    if(buf[0]=='e' && buf[1]=='x'&& buf[2]=='p'&& buf[3]=='o'&& buf[4]=='r'&& buf[5]=='t'){//export PATH
+     //count the namber of ':' and allocate memory for places
+    /////!!!!!!!!!
+    char ** a=0;
+    a++;
+    int counter_colon = 0;
+    int path_size=1;
+    int j=12;
+    int k=12;
+
+    for(j =12; buf[j]!=0;j++){//parsing
       
+      if (buf[j]==':'){//move between pathes
+	char temp[j-k+1];
+	printf(2, "path_size:%d\n", j-k+1);
+	while(k<=j){
+	  temp[k]=buf[k];
+	  printf(2, "%c",temp[k]);
+	  k++;
+	  }
+	  temp[k-1]='\0';
+	 a[counter_colon]=temp;
+	 printf(2, "\ncounter_colon %d. path_size:%d\n", counter_colon, path_size,sizeof(char)*(path_size+3));
+	 path_size=0;
+         }
+	
+// 	a[counter_colon]=malloc( sizeof(char)*(path_size+2));
+// 	printf(2, "counter_colon %d. path_size:%d  allocate:%d\n", counter_colon, path_size,sizeof(char)*(path_size+3)); 
+// 	counter_colon++;
+	path_size++;
+      }
+      a[counter_colon+1]='\0';
+      //test
+     for (;*a;a++){
+	  printf(2, "%s",*a);
+	}
+      
+    
+    
+     //printf(2, "fuck u %d\n", counter_colon); 
+      //TODO find the pathes and point to them from a
+      //TODO enter make path point to a
+    
+    }
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait();
