@@ -24,7 +24,7 @@ struct execcmd {
   char *argv[MAXARGS];
   char *eargv[MAXARGS];
 };
-
+// 
 struct redircmd {
   int type;
   struct cmd *cmd;
@@ -66,6 +66,8 @@ runcmd(struct cmd *cmd)
   struct pipecmd *pcmd;
   struct redircmd *rcmd;
 
+  
+  
   if(cmd == 0)
     exit();
   
@@ -75,10 +77,19 @@ runcmd(struct cmd *cmd)
 
   case EXEC:
     ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit();
+    if(ecmd->argv[0] == 0){
+      exit();}
+      
+   
     exec(ecmd->argv[0], ecmd->argv);
-    printf(2, "exec %s failed\n", ecmd->argv[0]);
+    
+    printf(2, "PATH %s\n", PATH);
+    //try to exec from paths
+    //chdir("/users/studs/bsc/2012/yonatana/os132");
+    
+    printf(2, "ecmd->args[0] %s: \n", ecmd);
+    exec(ecmd->argv[0], ecmd->argv);
+    printf(2, "total failure\n");
     break;
 
   case REDIR:
@@ -128,10 +139,7 @@ runcmd(struct cmd *cmd)
     if(fork1() == 0)
       runcmd(bcmd->cmd);
     break;
-  /*case BUS:
-    printf(2, "exec %s BUS\n", ecmd->argv[0]);
-    break;
-    */
+  
   }
   exit();
 }
@@ -146,7 +154,45 @@ getcmd(char *buf, int nbuf)//read the cmd to memory and return a pointer to the 
     return -1;
   return 0;
 }
+void
+readPath(char* paths)
+{
+ printf(2, "readPath %s\n");
+  char ** a=0;
+    a++;
+    int counter_colon = 0;
+    int path_size=1;
+    int j=12;
+    int k=12;
 
+    for(j =12; paths[j]!=0;j++){//parsing
+      
+      if (paths[j]==':'){//move between pathes
+	char temp[j-k+1];
+	printf(2, "path_size:%d\n", j-k+1);
+	while(k<=j){
+	  temp[k]=paths[k];
+	  printf(2, "%c",temp[k]);
+	  k++;
+	  }
+	  temp[k-1]='\0';
+	 a[counter_colon]=temp;
+	 printf(2, "\ncounter_colon %d. path_size:%d\n", counter_colon, path_size,sizeof(char)*(path_size+3));
+	 path_size=0;
+         }
+	
+// 	a[counter_colon]=malloc( sizeof(char)*(path_size+2));
+// 	printf(2, "counter_colon %d. path_size:%d  allocate:%d\n", counter_colon, path_size,sizeof(char)*(path_size+3)); 
+// 	counter_colon++;
+	path_size++;
+      }
+      a[counter_colon+1]='\0';
+      //test
+
+      //TODO find the pathes and point to them from a
+      //TODO enter make path point to a
+    
+}
 int
 main(void)
 {
@@ -174,58 +220,19 @@ main(void)
       continue;
     }
     if(buf[0]=='e' && buf[1]=='x'&& buf[2]=='p'&& buf[3]=='o'&& buf[4]=='r'&& buf[5]=='t'){//export PATH
-     //count the namber of ':' and allocate memory for places
-    /////!!!!!!!!!
-    char ** a=0;
-    a++;
-    int counter_colon = 0;
-    int path_size=1;
-    int j=12;
-    int k=12;
-
-    for(j =12; buf[j]!=0;j++){//parsing
-      
-      if (buf[j]==':'){//move between pathes
-	char temp[j-k+1];
-	printf(2, "path_size:%d\n", j-k+1);
-	while(k<=j){
-	  temp[k]=buf[k];
-	  printf(2, "%c",temp[k]);
-	  k++;
-	  }
-	  temp[k-1]='\0';
-	 a[counter_colon]=temp;
-	 printf(2, "\ncounter_colon %d. path_size:%d\n", counter_colon, path_size,sizeof(char)*(path_size+3));
-	 path_size=0;
-         }
-	
-// 	a[counter_colon]=malloc( sizeof(char)*(path_size+2));
-// 	printf(2, "counter_colon %d. path_size:%d  allocate:%d\n", counter_colon, path_size,sizeof(char)*(path_size+3)); 
-// 	counter_colon++;
-	path_size++;
-      }
-      a[counter_colon+1]='\0';
-      //test
-     for (;*a;a++){
-	  printf(2, "%s",*a);
-	}
-      
     
-    
-     //printf(2, "fuck u %d\n", counter_colon); 
-      //TODO find the pathes and point to them from a
-      //TODO enter make path point to a
-    
+    //readPath(buf);TODO
     }
     if(fork1() == 0)
-      runcmd(parsecmd(buf));
+      runcmd(parsecmd(buf));//send the child to do whatever return from the parsecmd(buf)
     wait();
   }
   exit();
 }
 
+
 void
-panic(char *s)
+panic(char *s)//print the *s it gets
 {
   printf(2, "%s\n", s);
   exit();
@@ -307,7 +314,7 @@ backcmd(struct cmd *subcmd)
   memset(cmd, 0, sizeof(*cmd));
   cmd->type = BACK;
   cmd->cmd = subcmd;
-  return (struct cmd*)cmd;
+   return (struct cmd*)cmd;
 }
 //PAGEBREAK!
 // Parsing
@@ -361,15 +368,15 @@ gettoken(char **ps, char *es, char **q, char **eq)
 }
 
 int
-peek(char **ps, char *es, char *toks)
+peek(char **ps, char *es, char *toks)//get the begining and ending adress and some tokns
 {
   char *s;
   
   s = *ps;
-  while(s < es && strchr(whitespace, *s))
+  while(s < es && strchr(whitespace, *s))//looking for the first apperns of \t\r\n\v
     s++;
   *ps = s;
-  return *s && strchr(toks, *s);
+  return *s && strchr(toks, *s);//check that we have somthing to do beside \t\r\n\v
 }
 
 struct cmd *parseline(char**, char*);
@@ -378,13 +385,13 @@ struct cmd *parseexec(char**, char*);
 struct cmd *nulterminate(struct cmd*);
 
 struct cmd*
-parsecmd(char *s)//
+parsecmd(char *s)//get Char*
 {
   char *es;
   struct cmd *cmd;
 
   es = s + strlen(s);//go to the end of s in memory
-  cmd = parseline(&s, es);
+  cmd = parseline(&s, es);//send the begining and ending adress of the input
   peek(&s, es, "");
   if(s != es){
     printf(2, "leftovers: %s\n", s);
@@ -395,11 +402,11 @@ parsecmd(char *s)//
 }
 
 struct cmd*
-parseline(char **ps, char *es)//********************
+parseline(char **ps, char *es)//get the begining and the end of the input
 {
   struct cmd *cmd;
 
-  cmd = parsepipe(ps, es);
+  cmd = parsepipe(ps, es);////check the input syntax
   while(peek(ps, es, "&")){
     gettoken(ps, es, 0, 0);
     cmd = backcmd(cmd);
@@ -412,11 +419,11 @@ parseline(char **ps, char *es)//********************
 }
 
 struct cmd*
-parsepipe(char **ps, char *es)//******************************
+parsepipe(char **ps, char *es)//get the begining and ending of the input
 {
   struct cmd *cmd;
 
-  cmd = parseexec(ps, es);
+  cmd = parseexec(ps, es);//get the bgining and ending of the input
   if(peek(ps, es, "|")){
     gettoken(ps, es, 0, 0);
     cmd = pipecmd(cmd, parsepipe(ps, es));
@@ -466,14 +473,14 @@ parseblock(char **ps, char *es)
 }
 
 struct cmd*
-parseexec(char **ps, char *es)//***************************
+parseexec(char **ps, char *es)//check the input syntax and exec
 {
   char *q, *eq;
   int tok, argc;
   struct execcmd *cmd;
   struct cmd *ret;
   
-  if(peek(ps, es, "("))
+  if(peek(ps, es, "("))//type of "(foo)" commned
     return parseblock(ps, es);
 
   ret = execcmd();
@@ -484,12 +491,12 @@ parseexec(char **ps, char *es)//***************************
   while(!peek(ps, es, "|)&;")){
     if((tok=gettoken(ps, es, &q, &eq)) == 0)
       break;
-    if(tok != 'a')
+    if(tok != 'a')//check the syntax some how
       panic("syntax");
     cmd->argv[argc] = q;
     cmd->eargv[argc] = eq;
     argc++;
-    if(argc >= MAXARGS)
+    if(argc >= MAXARGS)//check the namber of arguments
       panic("too many args");
     ret = parseredirs(ret, ps, es);
   }
