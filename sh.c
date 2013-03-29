@@ -81,20 +81,24 @@ runcmd(struct cmd *cmd)
       exit();
     }
       exec(ecmd->argv[0], ecmd->argv);//try exec normally
-     
+   
+         
       //try the other paths
     int i = 0;
     int j = 0;
     char temp_path[100];
     
+   
     while(PATH[i]){
+     //printf(2,"while (i): %d\n",i); 
      strcpy(temp_path,PATH[i]);//copy the new path
      int path_length = strlen(PATH[i]);//gets the length of the next path
-     for(j = 0; j < strlen(ecmd->argv[0]) ; j++){//copy the arguments
-       temp_path[path_length+1] = ecmd->argv[0][j];
+     for(j = 0; j <= strlen(ecmd->argv[j]) ; j++){//copy the arguments
+       temp_path[path_length+j] = ecmd->argv[0][j];
      }
-     printf(2,"path: %d",temp_path);
+     //printf(2,"try path: %s\n",temp_path);
      exec(temp_path,ecmd->argv);
+     i++;
     }
    
     //print in case of failure
@@ -166,14 +170,14 @@ getcmd(char *buf, int nbuf)//read the cmd to memory and return a pointer to the 
 void
 readPath(char* paths)//read the pathes and update the PATH varible;
 {
- printf(2, "readPath %s\n");
-  int i=12;//pointer on the paths, starts at 12 where the pathes starts
+ printf(2, "readPath \n");
+  int i=0;//pointer on the paths, starts at 12 where the pathes starts
   int path_end;//place of the end of a specific path
   char* temp_path;//a temp path
   
-  for(i=12;;i++){
+  for(i=0;;i++){
     temp_path =strchr(paths,':');//find the next ':' in paths
-    if(!temp_path) break;//we rerach the end of the pathes
+    if(!temp_path) break;//we reached the end of the pathes
     else {
       path_end = strlen(paths) - strlen(temp_path);//find the begining of the path
       PATH[i] = (char*)malloc(strlen(paths)*sizeof(char));//allocate the memory for the i path
@@ -183,6 +187,7 @@ readPath(char* paths)//read the pathes and update the PATH varible;
     }
   }
  PATH[i+1] = '\0'; // end the new PATH with '\0'
+  
 }
  
 int
@@ -210,9 +215,13 @@ main(void)
         printf(2, "cannot cd %s\n", buf+3);
       continue;
     }
-    if(buf[0]=='e' && buf[1]=='x'&& buf[2]=='p'&& buf[3]=='o'&& buf[4]=='r'&& buf[5]=='t'){//export PATH
+    //check for export method
+    else if(buf[0]=='e' && buf[1]=='x'&& buf[2]=='p'&& buf[3]=='o'&& buf[4]=='r'&& buf[5]=='t'){//export PATH
+    buf[strlen(buf)-1] =0;
+    readPath(buf+12);
+    printf(2,"PATH[i]: %d\n",PATH[0]); 
     
-    //readPath(buf);TODO
+    continue;
     }
     if(fork1() == 0)
       runcmd(parsecmd(buf));//send the child to do whatever return from the parsecmd(buf)
