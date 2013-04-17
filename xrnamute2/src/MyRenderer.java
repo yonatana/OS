@@ -1,4 +1,4 @@
-package chart;
+
 
 import java.awt.Color;
 import java.awt.Paint;
@@ -6,7 +6,6 @@ import java.util.ArrayList;
 
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 
-import XRNA.dataPoint;
 
 public class MyRenderer extends XYLineAndShapeRenderer {
 	ArrayList<dataPoint> myDataPoints;

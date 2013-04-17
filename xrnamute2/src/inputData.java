@@ -1,4 +1,4 @@
-package XRNA;
+
 
 public class inputData {
 

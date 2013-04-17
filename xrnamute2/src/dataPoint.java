@@ -1,4 +1,3 @@
-package XRNA;
 
 import java.io.Serializable;
 

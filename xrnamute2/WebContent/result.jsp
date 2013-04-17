@@ -64,7 +64,6 @@
 		
 	%>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <link rel="stylesheet" href="styleR.css">
@@ -75,7 +74,7 @@
 
 	<!-- <h1 class="t1">Results</h1> -->
 	<h3 class="header">
-		Sorry, an error occured, please enter the data again in this link:<br>
+		Sorry, an error occurred, please enter the data again in this link:<br>
 		<a href="index.jsp">Try Again</a>
 	</h3>
 
@@ -86,7 +85,6 @@
 	//else: resultStatus==1 and the results desplayed in this page
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <link rel="stylesheet" href="styleR.css">

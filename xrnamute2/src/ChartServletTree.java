@@ -1,4 +1,4 @@
-package chart;
+
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -35,10 +35,6 @@ import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
-
-import XRNA.DB;
-import XRNA.dataPoint;
-import XRNA.resultData;
 
 
 public class ChartServletTree extends HttpServlet {

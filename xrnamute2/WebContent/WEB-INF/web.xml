@@ -5,7 +5,7 @@
 
 	<servlet>
 		<servlet-name>ChartServletBP</servlet-name>
-		<servlet-class>chart.ChartServletBP</servlet-class>
+		<servlet-class>ChartServletBP</servlet-class>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>ChartServletBP</servlet-name>
@@ -14,7 +14,7 @@
 	
 	<servlet>
 		<servlet-name>ChartServletTree</servlet-name>
-		<servlet-class>chart.ChartServletTree</servlet-class>
+		<servlet-class>ChartServletTree</servlet-class>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>ChartServletTree</servlet-name>
