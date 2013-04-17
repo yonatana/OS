@@ -38,8 +38,10 @@
 						"xrna2", "L.#Xhi27");
 				agent.connect();
 				//TODO use the respond from server from the return of the excecute
-				agent.executeCommand("qsub -v id="
-						+ id + " /home/studies/projects/xrna2/runAlgo.sh");
+				agent.executeCommand("rm -f /home/studies/projects/xrna2/runAlgo.sh.*");
+				agent.executeCommand("qsub -v id=" + id
+						+ " /home/studies/projects/xrna2/runAlgo.sh");
+
 			} catch (Exception e) {
 				e.printStackTrace();
 				linkMassage = "we encountered a problem while using te algorithm, please try again.";

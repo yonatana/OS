@@ -34,7 +34,7 @@ public class DB {
                                                 "windowMin INTEGER, " +
                                                 "windowMax INTEGER, " +
                                                 "temp INTEGER, " +
-                                                "sequence TEXT NOT NULL, "+
+                                                "sequence MEDIUMTEXT NOT NULL, "+
                                                 "created DATETIME, " +
                                                 "PRIMARY KEY (id))";
     final String INIT_RESULTS_TABLE =    "CREATE TABLE IF NOT EXISTS RESULTS "+
@@ -70,6 +70,8 @@ public class DB {
         catch (IOException e){
             System.out.println(e.getMessage());
         }
+        if(!initTables())
+            System.out.println("Could not initialize XRNA.DB tables, please see log");
     }
 
 
