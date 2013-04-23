@@ -1,4 +1,4 @@
-<%@ page import="XRNA.DB"%>
+	<%@ page import="XRNA.DB"%>
 <%@ page import="java.io.*"%>
 <%@ page import="org.jfree.chart.JFreeChart"%>
 <%@ page import="org.jfree.chart.ChartUtilities"%>
@@ -33,11 +33,10 @@
 	DB db = new DB();
 	//Check the result status in the DB
 	int resultStatus = db.checkResults(id);
-	
-	//0-there are no results yet, returns relevant page
-	if (resultStatus == 0) { 
 
-	%>
+	//0-there are no results yet, returns relevant page
+	if (resultStatus == 0) {
+%>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
@@ -51,18 +50,16 @@
 	<!-- <h1 class="t1">Results</h1> -->
 	<h3 class="header">
 		Sorry, we have not finished analyzing the data yet, please try later
-		in this link: <br>
-		<a href="result.jsp?id=<%=id%>">Results</a>
+		in this link: <br> <a href="result.jsp?id=<%=id%>">Results</a>
 	</h3>
-
 </body>
 </html>
 
 
-<%	//2- the job has failed, returns relevant page
+<%
+	//2- the job has failed, returns relevant page
 	} else if (resultStatus == 2) {
-		
-	%>
+%>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
@@ -81,8 +78,8 @@
 </body>
 </html>
 <%
-	}else{
-	//else: resultStatus==1 and the results desplayed in this page
+	} else {
+		//else: resultStatus==1 and the results desplayed in this page
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <head>
@@ -162,7 +159,9 @@
 
 </body>
 </html>
-<%} %>
+<%
+	}
+%>
 <!--include the call for the image 
 <img src="/ChartServlet" width="400" height="300" border="0" alt="" />
 include the map -->
