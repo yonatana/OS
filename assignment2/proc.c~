@@ -7,10 +7,25 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#define NUM_OF_SEMAPHORES 128
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
+
+typedef struct semaphore{
+ struct spinlock lock;
+ int value;//0 is locked, 1 is free
+ int initialize;//if > 0 then the semaphore was initialize
+ int queue;  // how many process is wating for this semaphore
+} semaphore;
+
+struct {
+  struct spinlock lock;
+  int next_sem;
+  struct semaphore semaphore[NUM_OF_SEMAPHORES];
+} sem_table;
 
 static struct proc *initproc;
 
@@ -23,7 +38,12 @@ static void wakeup1(void *chan);
 void
 pinit(void)
 {
+  int i;
   initlock(&ptable.lock, "ptable");
+  initlock(&sem_table.lock, "sem_table"); // initial sem_table lock
+  for(i = 0; i<NUM_OF_SEMAPHORES ; i++){	// initialize every semaphore lock in sem_table
+      initlock(&sem_table.semaphore[i].lock,"semaphore");
+  }
 }
 
 //PAGEBREAK: 32
@@ -337,11 +357,98 @@ void thread_exit(void* ret_val){
   }
 
 }
-
-int binary_semaphore_create(int initial_value){return 0;}
-int binary_semaphore_down(int binary_semaphore_ID){return 0;}
-int binary_semaphore_up(int binary_semaphore_ID){ return 0;}
-
+//TODO cehck stuff
+int binary_semaphore_create(int initial_value){
+  acquire(&sem_table.lock);
+  //TODO acquire semaphore (just maybe)
+  int ret_semaphore = sem_table.next_sem;
+  sem_table.semaphore[ret_semaphore].value = initial_value;
+  sem_table.semaphore[ret_semaphore].initialize = 1;
+  sem_table.semaphore[ret_semaphore].queue =0;
+  sem_table.next_sem++;
+  release(&sem_table.lock);
+  return ret_semaphore;
+}
+/*
+ * this thread wants the semaphore
+ * if its 0 then the thread does to sleep
+ * else take it
+ */
+int 
+binary_semaphore_down(int binary_semaphore_ID){
+  int ans = 0;
+  //acuire the semaphore
+  acquire(&sem_table.lock);
+  struct semaphore sem;
+  acquire(&sem_table.semaphore[binary_semaphore_ID].lock);
+  sem = sem_table.semaphore[binary_semaphore_ID];
+  release(&sem_table.lock);
+  //cehck the resource & semaphore
+  if(sem.initialize ==0){
+     cprintf("we are tring to use uninitialize semaphore%d.",binary_semaphore_ID);
+    ans =-1;
+  }
+  
+  //do down
+  if(sem.value <=0){//the process is blocked
+    proc->wait_for_sem = binary_semaphore_ID;  
+    sem.queue++; 
+    proc->place_in_queue =sem.queue;
+    sleep(proc, &sem.lock);
+  }else{
+    sem.value--;
+  }
+  release(&sem.lock);
+  return ans;
+}
+/*
+ * we want to realse the semaphore
+ * if somebody else want it, we wake them up by its queue place
+ */
+int 
+binary_semaphore_up(int binary_semaphore_ID){ 
+  int ans = 0;
+  struct proc *p;
+  struct proc *proc_to_wake;
+  //acuire the semaphore
+  acquire(&sem_table.lock);
+  struct semaphore sem;
+  acquire(&sem_table.semaphore[binary_semaphore_ID].lock);
+  sem = sem_table.semaphore[binary_semaphore_ID];
+  release(&sem_table.lock);
+  
+  //cehck the resource & semaphore
+  if(sem.initialize ==0){
+     cprintf("we are tring to use uninitialize semaphore%d.",binary_semaphore_ID);
+    ans =-1;
+  } 
+  if (sem.value <= 0) {
+    cprintf("semaphoreID %d had realsed the already rleased resurs.",binary_semaphore_ID);
+    ans =-1;
+  }  
+  
+  //do up
+  if(sem.queue >0){//there are procecse waiting for this semaphore
+  acquire(&ptable.lock);
+    //find process to wakeup
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->wait_for_sem == binary_semaphore_ID){ //this process is waiting for this semaphore
+	if(p->place_in_queue ==1){
+	  proc_to_wake = p;
+	}
+	p->place_in_queue=p->place_in_queue-1;//get every process to the next place inline
+      }
+    }
+    release(&ptable.lock);
+  }else{
+  sem.value++;  
+  }
+  release(&sem.lock);
+  //update the awaken proccees
+  proc_to_wake->wait_for_sem =-1;//not waitng anymore
+  wakeup1(proc_to_wake);
+  return ans;
+}
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
