@@ -27,10 +27,6 @@ int thread_getId(void);
 int thread_getProcId(void);
 int thread_join(int,void**);
 int thread_exit(void*);
-int binary_semaphore_create(int);
-int binary_semaphore_down(int);
-int binary_semaphore_up(int);
-
 
 // ulib.c
 int stat(char*, struct stat*);

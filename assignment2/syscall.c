@@ -103,9 +103,6 @@ extern int sys_thread_getId(void);
 extern int sys_thread_getProcId(void);
 extern int sys_thread_join(void);
 extern int sys_thread_exit(void);
-extern int sys_binary_semaphore_create(void);
-extern int sys_binary_semaphore_down(void);
-extern int sys_binary_semaphore_up(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -134,9 +131,6 @@ static int (*syscalls[])(void) = {
 [SYS_thread_getProcId] sys_thread_getProcId,
 [SYS_thread_join] sys_thread_join,
 [SYS_thread_exit] sys_thread_exit,
-[SYS_binary_semaphore_create] sys_binary_semaphore_create,
-[SYS_binary_semaphore_down] sys_binary_semaphore_down,
-[SYS_binary_semaphore_up] sys_binary_semaphore_up,
 };
 
 void

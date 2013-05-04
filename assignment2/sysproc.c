@@ -132,22 +132,3 @@ sys_thread_exit(void)
     return 0; // not reached
 }
 
-int 
-sys_binary_semaphore_create(void){
-  int initial_value;
-  argint(0,&initial_value);
-  return binary_semaphore_create(initial_value);
-}
-
-int 
-sys_binary_semaphore_down(void){
-   int binary_semaphore_ID;
-  argint(0,&binary_semaphore_ID);
-  return binary_semaphore_down(binary_semaphore_ID);
-}
-int 
-sys_binary_semaphore_up(void){
-   int binary_semaphore_ID;
-  argint(0,&binary_semaphore_ID);
-  return binary_semaphore_up(binary_semaphore_ID);
-}

@@ -27,6 +27,3 @@
 #define SYS_thread_getProcId 24
 #define SYS_thread_join 25
 #define SYS_thread_exit 26
-#define SYS_binary_semaphore_create 27
-#define SYS_binary_semaphore_down 28
-#define SYS_binary_semaphore_up 29
