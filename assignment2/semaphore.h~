@@ -1,14 +1,17 @@
 #include "types.h"
-#include "defs.h"
-#include "param.h"
-#include "memlayout.h"
 #include "mmu.h"
-#include "x86.h"
+#include "param.h"
 #include "proc.h"
-#include "spinlock.h"
+#include "user.h"
+
 
 struct semaphore {
-  struct semphore s1;
-  struct semphore s2;	  
+  int s1;//semaphore 1 id
+  int s2;//semaphore 2 id	  
   int value;
+  int initial_value;
 };
+
+struct semaphore* semaphore_create(int initial_semaphore_value);
+void semaphore_down(struct semaphore* sem );
+void semaphore_up(struct semaphore* sem );
