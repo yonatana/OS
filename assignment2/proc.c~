@@ -123,6 +123,28 @@ userinit(void)
   p->state = RUNNABLE;
 }
 
+/*
+ * check if this thread is the last thread
+ * don't count itself
+ * return 0 if it is the last thread
+ */
+int
+is_last_thread(int key){
+  //acquire(&ptable.lock);
+  struct proc* p;
+  int thread_alive;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->parent->pid == key && p->is_thread == 1){//fount a thread brother 
+      if(p->state != ZOMBIE){
+	thread_alive++;
+      }
+    }  
+  //release(&ptable.lock)
+  }
+  return thread_alive;
+}
+
+
 // Grow current process's memory by n bytes.
 // Return 0 on success, -1 on failure.
 int
@@ -256,11 +278,11 @@ int thread_create( void*(*start_func)(), void* stack, uint stack_size ){
     // Clear %eax so that fork returns 0 in the child.
     np->tf->eax = 0;
     
+    //pss te file decriptor 
     for(i = 0; i < NOFILE; i++)
       if(proc->ofile[i])
 	np->ofile[i] = proc->ofile[i];
 	//np->ofile[i] = filedup(proc->ofile[i]);//dup-> [i]
-      
       //np->cwd = idup(proc->cwd);//no dup
       np->cwd = proc->cwd;
     
@@ -285,31 +307,51 @@ int thread_getProcId(){
 int thread_join(int thread_id, void** ret_val){
   
   struct proc *p;
-  struct proc *thread_to_join;
-  acquire(&ptable.lock);
-  
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->thread_joined == thread_id){ //thread already joined by other thread
-	release(&ptable.lock);
-	return -2;
-      }
-      if(p->pid == thread_id && p->state == ZOMBIE){	// thread to joined already terminated(ZOMBIE)
-	release(&ptable.lock);
-	return -1;
-      }
-      
-      if(p->pid == thread_id && p->parent != proc){ // thread to joined and current thread does not share same father
-	release(&ptable.lock);
-	return -1;
-      }
-      if(p->pid == thread_id) // found a thread to join
-	thread_to_join = p;
-  }
-  (*ret_val) = (void*)thread_to_join->tf->eax; 
-  release(&ptable.lock);
   proc->thread_joined = thread_id;
-  proc->state = BLOCKED;
-  return 0;
+  
+  acquire(&ptable.lock);
+  for(;;){
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->thread_joined == thread_id){ //thread already joined by other thread
+	  cprintf("thread %d was allready joined b other thread, we will return -2", p->pid);
+	  release(&ptable.lock);
+	  return -2;
+	}
+	if(p->pid == thread_id){//this is the thread we were looking for
+	  if(p->state == ZOMBIE){// thread to joined already terminated(ZOMBIE)
+	      // Found the thread we were looking for.
+	    (*ret_val) = (void*)p->tf->eax; 
+	    if(is_last_thread(p->parent->pid)==0){//this is the last thread
+	       freevm(p->pgdir);
+	    }
+	    kfree(p->kstack);
+	    p->kstack = 0;
+	    p->state = UNUSED;
+	    p->pid = 0;
+	    p->parent = 0;
+	    p->name[0] = 0;
+	    p->killed = 0;
+	    release(&ptable.lock);
+	    return 0;
+	  }
+	  
+	  if(p->pid == thread_id && p->parent != proc){ // thread to joined and current thread does not share same father
+	    release(&ptable.lock);
+	    cprintf("we tried to join thread %d was which had different parent", p->pid);
+	    return -1;
+	  }
+	  if(p->pid == thread_id){ // found a thread to join
+	   (*ret_val) = (void*)p->tf->eax; 
+	    p->thread_joined = proc->pid;
+	   sleep(proc, &ptable.lock);  //DOC: wait-sleep
+	  }
+	}
+    }
+    cprintf("we tried to join thread %d which wasen't exists",p->pid);
+    release(&ptable.lock);   
+      return -1;
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+  }
 }
 
 void thread_exit(void* ret_val){
@@ -319,15 +361,17 @@ void thread_exit(void* ret_val){
 
     if(proc == initproc)
       panic("init exiting");
-
-    // Close all open files.
-    for(fd = 0; fd < NOFILE; fd++){
-      if(proc->ofile[fd]){
-	fileclose(proc->ofile[fd]);
-	proc->ofile[fd] = 0;
+    
+     if(is_last_thread(proc->parent->pid)){//is this the last thread
+      // Close all open files.
+      for(fd = 0; fd < NOFILE; fd++){
+	if(proc->ofile[fd]){
+	  fileclose(proc->ofile[fd]);
+	  proc->ofile[fd] = 0;
+	}
       }
     }
-    
+    //TODO is this somthing sheard then close it in the if above
     iput(proc->cwd);
     proc->cwd = 0;
 
@@ -335,27 +379,32 @@ void thread_exit(void* ret_val){
 
     // Parent might be sleeping in wait().
     wakeup1(proc->parent);
+    //joind might been sleeping on it
+    if(proc->thread_joined > 0){
+    
+      
+    }
     
     // Pass abandoned children to init.
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent == proc){
-	p->parent = initproc;
-	if(p->state == ZOMBIE)
-	  wakeup1(initproc);
-      }
-      //added to thread_join
-      if(p->thread_joined == proc->pid && ret_val != 0){
+      //wake thread_join
+      if(proc->thread_joined == p->pid && ret_val != 0){
 	ret_val = (void*)p->tf->eax;
 	wakeup1(p);
       }
+      else if(proc->thread_joined == p->pid && ret_val == 0){
+	cprintf("we exitd thread: %d and waked thread %d but we didnt had any ret_val",proc->pid,p->pid); 
+	wakeup1(p);
+      }
     }
-    
     // Jump into the scheduler, never to return.
     proc->state = ZOMBIE;
     sched();
     panic("zombie exit");
   }
-
+  else{
+  cprintf("we tried to join_exit thread: %d which wasen't a thread",p->pid); 
+  }
 }
 //TODO cehck stuff
 int binary_semaphore_create(int initial_value){
@@ -421,7 +470,7 @@ binary_semaphore_up(int binary_semaphore_ID){
   if(sem.initialize ==0){
      cprintf("we are tring to use uninitialize semaphore%d.",binary_semaphore_ID);
     ans =-1;
-  } 
+  }
   if (sem.value <= 0) {
     cprintf("semaphoreID %d had realsed the already rleased resurs.",binary_semaphore_ID);
     ans =-1;
