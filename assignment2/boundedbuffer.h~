@@ -4,14 +4,14 @@
 #include "proc.h"
 #include "user.h"
 
-structBB{
- void* elements[buffer_size];
- int buffer_size;
+struct BB {
+ int buffer_size =0;
  int mutex;//protect the CS
- struct semaphore *empty_slots; // empty slots
- struct semaphore *full_slots; // full slots
- 
-}
+ struct semaphore* empty_slots; // empty slots
+ struct semaphore* full_slots; // full slots
+ void* elements[buffer_size];
+};
+
 
 struct BB* BB_create(int max_capacity);
 void BB_put(struct BB* bb, void* element);

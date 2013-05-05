@@ -4,34 +4,39 @@
 #include "stat.h"
 #include "user.h"
 
-void *retval;
-void *printme(int* c) {
-    printf(1,"Hi. I'm thread %d\n", getpid());
-    *c=*c+1;
-    printf(1,"C: %d\n", *c);
-    thread_exit(retval);
-    return 0;
+#define STACK_SIZE 1024
+#define NUM_OF_PRINTS 3
+
+
+
+void *printme(int* sem) {
+  int j;
+  if(thread_getId() != thread_getProcId()){
+    for(;;){
+      binary_semaphore_down(*sem);
+      for(j = 0; j < NUM_OF_PRINTS; j++){
+	  printf(1,"Process %d Thread %d is running\n",thread_getProcId(),thread_getId());
+      }
+      binary_semaphore_up(*sem);    
+    }
+  }
+  return 0;
 }
 
-int main() {
-    int i, tids[4];
-    int tid;
-    int counter =0;
-    void* stack = (void*)malloc(1024);
-    uint stack_size = 1024;
-    for (i = 0; i < 4; i++) {
-        tids[i] = thread_create(printme(&counter), stack, stack_size);
-	
-    }
-    for (i = 0; i < 4; i++) {
-        printf(1,"Trying to join with tid%d\n", tids[i]);
-        thread_join(tids[i], &retval);
-        printf(1,"Joined with tid%d\n", tids[i]);
+int main(int argc, char** argv) {
+    int num_of_threads = atoi(argv[1]);
+    int i;
+    int the_lock;
+    the_lock = binary_semaphore_create(1);
+    void * stack;
+    for(i = 0; i < num_of_threads; i++){
+      
+	stack = (void*)malloc (STACK_SIZE);
+	thread_create(printme(&the_lock),stack,STACK_SIZE);
     }
     for(;;){
-      tid = wait();
-      if(tid == -1)
-	break;
+	if(wait() == -1)
+	  break;
     }
     exit();
     return 0;

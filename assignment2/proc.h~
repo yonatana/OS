@@ -72,13 +72,14 @@ struct proc {
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
   struct file *ofile[NOFILE];  // Open files
+  struct file *temp_ofile;     //temp files for deletion ###########on thread create we point it to ofile, on thread_exit we point ofile back ti temp_ofile 
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int is_thread;		// Is the process a thread: 0 => process is not a thread. 1 => process is a thread.
   int thread_joined;		// Identifier of the thread that needs to be waited for. Initialized to -1 => no thread to wait for
   int tid;			//all thread from same father have special id
-  int wait_for_sem		//the Id of semaphore this thread is waiting for
-  int place_in_queue		//while waiting to a semaphore, this is the place in queue
+  int wait_for_sem;		//the Id of semaphore this thread is waiting for
+  int place_in_queue;		//while waiting to a semaphore, this is the place in queue
 };
 
 // Process memory is laid out contiguously, low addresses first:

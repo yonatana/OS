@@ -1,4 +1,6 @@
 #include "boundedbuffer.h"
+#include "types.h"
+#include "user.h"
 
 struct BB* 
 BB_create(int max_capacity){
