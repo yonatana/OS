@@ -79,7 +79,7 @@ struct proc {
   int thread_joined;		// Identifier of the thread that needs to be waited for. Initialized to -1 => no thread to wait for
   int tid;			//all thread from same father have special id
   int wait_for_sem;		//the Id of semaphore this thread is waiting for
-  int sem_queue_pos;		//while waiting to a semaphore, this is the place in queue
+  int sem_queue_pos[128];	// while waiting to a semaphore, this is the place in queue (array of semaphores to wait at)
 };
 
 // Process memory is laid out contiguously, low addresses first:

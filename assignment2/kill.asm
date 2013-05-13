@@ -21,7 +21,7 @@ main(int argc, char **argv)
    9:	83 7d 08 00          	cmpl   $0x0,0x8(%ebp)
    d:	7f 19                	jg     28 <main+0x28>
     printf(2, "usage: kill pid...\n");
-   f:	c7 44 24 04 70 09 00 	movl   $0x970,0x4(%esp)
+   f:	c7 44 24 04 b0 0b 00 	movl   $0xbb0,0x4(%esp)
   16:	00 
   17:	c7 04 24 02 00 00 00 	movl   $0x2,(%esp)
   1e:	e8 5c 04 00 00       	call   47f <printf>
@@ -706,7 +706,7 @@ printint(int fd, int xx, int base, int sgn)
  40d:	ba 00 00 00 00       	mov    $0x0,%edx
  412:	f7 f1                	div    %ecx
  414:	89 d0                	mov    %edx,%eax
- 416:	0f b6 90 5c 0c 00 00 	movzbl 0xc5c(%eax),%edx
+ 416:	0f b6 90 88 0f 00 00 	movzbl 0xf88(%eax),%edx
  41d:	8d 45 dc             	lea    -0x24(%ebp),%eax
  420:	03 45 f4             	add    -0xc(%ebp),%eax
  423:	88 10                	mov    %dl,(%eax)
@@ -855,7 +855,7 @@ printf(int fd, char *fmt, ...)
  571:	83 7d f4 00          	cmpl   $0x0,-0xc(%ebp)
  575:	75 27                	jne    59e <printf+0x11f>
           s = "(null)";
- 577:	c7 45 f4 84 09 00 00 	movl   $0x984,-0xc(%ebp)
+ 577:	c7 45 f4 c4 0b 00 00 	movl   $0xbc4,-0xc(%ebp)
         while(*s != 0){
  57e:	eb 1e                	jmp    59e <printf+0x11f>
           putc(fd, *s);
@@ -967,7 +967,7 @@ free(void *ap)
  63d:	83 e8 08             	sub    $0x8,%eax
  640:	89 45 f8             	mov    %eax,-0x8(%ebp)
   for(p = freep; !(bp > p && bp < p->s.ptr); p = p->s.ptr)
- 643:	a1 78 0c 00 00       	mov    0xc78,%eax
+ 643:	a1 a4 0f 00 00       	mov    0xfa4,%eax
  648:	89 45 fc             	mov    %eax,-0x4(%ebp)
  64b:	eb 24                	jmp    671 <free+0x3d>
     if(p >= p->s.ptr && (bp > p || bp < p->s.ptr))
@@ -1060,7 +1060,7 @@ free(void *ap)
  6ff:	89 10                	mov    %edx,(%eax)
   freep = p;
  701:	8b 45 fc             	mov    -0x4(%ebp),%eax
- 704:	a3 78 0c 00 00       	mov    %eax,0xc78
+ 704:	a3 a4 0f 00 00       	mov    %eax,0xfa4
 }
  709:	c9                   	leave  
  70a:	c3                   	ret    
@@ -1106,7 +1106,7 @@ morecore(uint nu)
  754:	89 04 24             	mov    %eax,(%esp)
  757:	e8 d8 fe ff ff       	call   634 <free>
   return freep;
- 75c:	a1 78 0c 00 00       	mov    0xc78,%eax
+ 75c:	a1 a4 0f 00 00       	mov    0xfa4,%eax
 }
  761:	c9                   	leave  
  762:	c3                   	ret    
@@ -1129,18 +1129,18 @@ malloc(uint nbytes)
  772:	83 c0 01             	add    $0x1,%eax
  775:	89 45 ec             	mov    %eax,-0x14(%ebp)
   if((prevp = freep) == 0){
- 778:	a1 78 0c 00 00       	mov    0xc78,%eax
+ 778:	a1 a4 0f 00 00       	mov    0xfa4,%eax
  77d:	89 45 f0             	mov    %eax,-0x10(%ebp)
  780:	83 7d f0 00          	cmpl   $0x0,-0x10(%ebp)
  784:	75 23                	jne    7a9 <malloc+0x46>
     base.s.ptr = freep = prevp = &base;
- 786:	c7 45 f0 70 0c 00 00 	movl   $0xc70,-0x10(%ebp)
+ 786:	c7 45 f0 9c 0f 00 00 	movl   $0xf9c,-0x10(%ebp)
  78d:	8b 45 f0             	mov    -0x10(%ebp),%eax
- 790:	a3 78 0c 00 00       	mov    %eax,0xc78
- 795:	a1 78 0c 00 00       	mov    0xc78,%eax
- 79a:	a3 70 0c 00 00       	mov    %eax,0xc70
+ 790:	a3 a4 0f 00 00       	mov    %eax,0xfa4
+ 795:	a1 a4 0f 00 00       	mov    0xfa4,%eax
+ 79a:	a3 9c 0f 00 00       	mov    %eax,0xf9c
     base.s.size = 0;
- 79f:	c7 05 74 0c 00 00 00 	movl   $0x0,0xc74
+ 79f:	c7 05 a0 0f 00 00 00 	movl   $0x0,0xfa0
  7a6:	00 00 00 
   }
   for(p = prevp->s.ptr; ; prevp = p, p = p->s.ptr){
@@ -1183,14 +1183,14 @@ malloc(uint nbytes)
       }
       freep = prevp;
  7f9:	8b 45 f0             	mov    -0x10(%ebp),%eax
- 7fc:	a3 78 0c 00 00       	mov    %eax,0xc78
+ 7fc:	a3 a4 0f 00 00       	mov    %eax,0xfa4
       return (void*)(p + 1);
  801:	8b 45 f4             	mov    -0xc(%ebp),%eax
  804:	83 c0 08             	add    $0x8,%eax
  807:	eb 38                	jmp    841 <malloc+0xde>
     }
     if(p == freep)
- 809:	a1 78 0c 00 00       	mov    0xc78,%eax
+ 809:	a1 a4 0f 00 00       	mov    0xfa4,%eax
  80e:	39 45 f4             	cmp    %eax,-0xc(%ebp)
  811:	75 1b                	jne    82e <malloc+0xcb>
       if((p = morecore(nunits)) == 0)
@@ -1236,131 +1236,408 @@ struct semaphore* semaphore_create(int initial_semaphore_value){
  844:	55                   	push   %ebp
  845:	89 e5                	mov    %esp,%ebp
  847:	83 ec 28             	sub    $0x28,%esp
-  struct semaphore* sem=malloc(sizeof(struct semaphore));;
+  struct semaphore* sem=malloc(sizeof(struct semaphore)); 
  84a:	c7 04 24 10 00 00 00 	movl   $0x10,(%esp)
  851:	e8 0d ff ff ff       	call   763 <malloc>
  856:	89 45 f4             	mov    %eax,-0xc(%ebp)
   // acquire semaphors
-  sem->s1 = binary_semaphore_create (1);
+  sem->s1 = binary_semaphore_create(1);
  859:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
  860:	e8 2b fb ff ff       	call   390 <binary_semaphore_create>
  865:	8b 55 f4             	mov    -0xc(%ebp),%edx
  868:	89 02                	mov    %eax,(%edx)
-  sem->s2 = binary_semaphore_create(1);
- 86a:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
- 871:	e8 1a fb ff ff       	call   390 <binary_semaphore_create>
- 876:	8b 55 f4             	mov    -0xc(%ebp),%edx
- 879:	89 42 04             	mov    %eax,0x4(%edx)
+  
+  // s2 should be initialized with the min{1,initial_semaphore_value}
+  if(initial_semaphore_value >= 1){
+ 86a:	83 7d 08 00          	cmpl   $0x0,0x8(%ebp)
+ 86e:	7e 14                	jle    884 <semaphore_create+0x40>
+    sem->s2 = binary_semaphore_create(1);
+ 870:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+ 877:	e8 14 fb ff ff       	call   390 <binary_semaphore_create>
+ 87c:	8b 55 f4             	mov    -0xc(%ebp),%edx
+ 87f:	89 42 04             	mov    %eax,0x4(%edx)
+ 882:	eb 11                	jmp    895 <semaphore_create+0x51>
+  }else{
+    sem->s2 = binary_semaphore_create(initial_semaphore_value);
+ 884:	8b 45 08             	mov    0x8(%ebp),%eax
+ 887:	89 04 24             	mov    %eax,(%esp)
+ 88a:	e8 01 fb ff ff       	call   390 <binary_semaphore_create>
+ 88f:	8b 55 f4             	mov    -0xc(%ebp),%edx
+ 892:	89 42 04             	mov    %eax,0x4(%edx)
+  }
+  
   if(sem->s1 == -1 || sem->s2 == -1){
- 87c:	8b 45 f4             	mov    -0xc(%ebp),%eax
- 87f:	8b 00                	mov    (%eax),%eax
- 881:	83 f8 ff             	cmp    $0xffffffff,%eax
- 884:	74 0b                	je     891 <semaphore_create+0x4d>
- 886:	8b 45 f4             	mov    -0xc(%ebp),%eax
- 889:	8b 40 04             	mov    0x4(%eax),%eax
- 88c:	83 f8 ff             	cmp    $0xffffffff,%eax
- 88f:	75 26                	jne    8b7 <semaphore_create+0x73>
-     printf(1,"we had a probalem initialize in semaphore_create");
- 891:	c7 44 24 04 8c 09 00 	movl   $0x98c,0x4(%esp)
- 898:	00 
- 899:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
- 8a0:	e8 da fb ff ff       	call   47f <printf>
-   free(sem);
- 8a5:	8b 45 f4             	mov    -0xc(%ebp),%eax
- 8a8:	89 04 24             	mov    %eax,(%esp)
- 8ab:	e8 84 fd ff ff       	call   634 <free>
-   return 0;
- 8b0:	b8 00 00 00 00       	mov    $0x0,%eax
- 8b5:	eb 15                	jmp    8cc <semaphore_create+0x88>
+ 895:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ 898:	8b 00                	mov    (%eax),%eax
+ 89a:	83 f8 ff             	cmp    $0xffffffff,%eax
+ 89d:	74 0b                	je     8aa <semaphore_create+0x66>
+ 89f:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ 8a2:	8b 40 04             	mov    0x4(%eax),%eax
+ 8a5:	83 f8 ff             	cmp    $0xffffffff,%eax
+ 8a8:	75 26                	jne    8d0 <semaphore_create+0x8c>
+     printf(1,"we had a probalem initialize in semaphore_create\n");
+ 8aa:	c7 44 24 04 cc 0b 00 	movl   $0xbcc,0x4(%esp)
+ 8b1:	00 
+ 8b2:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+ 8b9:	e8 c1 fb ff ff       	call   47f <printf>
+     free(sem);
+ 8be:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ 8c1:	89 04 24             	mov    %eax,(%esp)
+ 8c4:	e8 6b fd ff ff       	call   634 <free>
+     return 0;
+ 8c9:	b8 00 00 00 00       	mov    $0x0,%eax
+ 8ce:	eb 15                	jmp    8e5 <semaphore_create+0xa1>
   }
   //initialize value
-  sem->value = initial_semaphore_value;//dinamic
- 8b7:	8b 45 f4             	mov    -0xc(%ebp),%eax
- 8ba:	8b 55 08             	mov    0x8(%ebp),%edx
- 8bd:	89 50 08             	mov    %edx,0x8(%eax)
+  sem->value = initial_semaphore_value;//dynamic
+ 8d0:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ 8d3:	8b 55 08             	mov    0x8(%ebp),%edx
+ 8d6:	89 50 08             	mov    %edx,0x8(%eax)
   sem->initial_value = initial_semaphore_value;//static
- 8c0:	8b 45 f4             	mov    -0xc(%ebp),%eax
- 8c3:	8b 55 08             	mov    0x8(%ebp),%edx
- 8c6:	89 50 0c             	mov    %edx,0xc(%eax)
+ 8d9:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ 8dc:	8b 55 08             	mov    0x8(%ebp),%edx
+ 8df:	89 50 0c             	mov    %edx,0xc(%eax)
   
   return sem;
- 8c9:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ 8e2:	8b 45 f4             	mov    -0xc(%ebp),%eax
 }
- 8cc:	c9                   	leave  
- 8cd:	c3                   	ret    
+ 8e5:	c9                   	leave  
+ 8e6:	c3                   	ret    
 
-000008ce <semaphore_down>:
+000008e7 <semaphore_down>:
 void semaphore_down(struct semaphore* sem ){
- 8ce:	55                   	push   %ebp
- 8cf:	89 e5                	mov    %esp,%ebp
- 8d1:	83 ec 18             	sub    $0x18,%esp
-  binary_semaphore_down(sem->s1);
- 8d4:	8b 45 08             	mov    0x8(%ebp),%eax
- 8d7:	8b 00                	mov    (%eax),%eax
- 8d9:	89 04 24             	mov    %eax,(%esp)
- 8dc:	e8 b7 fa ff ff       	call   398 <binary_semaphore_down>
+ 8e7:	55                   	push   %ebp
+ 8e8:	89 e5                	mov    %esp,%ebp
+ 8ea:	83 ec 18             	sub    $0x18,%esp
   binary_semaphore_down(sem->s2);
- 8e1:	8b 45 08             	mov    0x8(%ebp),%eax
- 8e4:	8b 40 04             	mov    0x4(%eax),%eax
- 8e7:	89 04 24             	mov    %eax,(%esp)
- 8ea:	e8 a9 fa ff ff       	call   398 <binary_semaphore_down>
+ 8ed:	8b 45 08             	mov    0x8(%ebp),%eax
+ 8f0:	8b 40 04             	mov    0x4(%eax),%eax
+ 8f3:	89 04 24             	mov    %eax,(%esp)
+ 8f6:	e8 9d fa ff ff       	call   398 <binary_semaphore_down>
+  binary_semaphore_down(sem->s1);
+ 8fb:	8b 45 08             	mov    0x8(%ebp),%eax
+ 8fe:	8b 00                	mov    (%eax),%eax
+ 900:	89 04 24             	mov    %eax,(%esp)
+ 903:	e8 90 fa ff ff       	call   398 <binary_semaphore_down>
   sem->value--;	
- 8ef:	8b 45 08             	mov    0x8(%ebp),%eax
- 8f2:	8b 40 08             	mov    0x8(%eax),%eax
- 8f5:	8d 50 ff             	lea    -0x1(%eax),%edx
- 8f8:	8b 45 08             	mov    0x8(%ebp),%eax
- 8fb:	89 50 08             	mov    %edx,0x8(%eax)
-  if(sem->value > 0){
- 8fe:	8b 45 08             	mov    0x8(%ebp),%eax
- 901:	8b 40 08             	mov    0x8(%eax),%eax
- 904:	85 c0                	test   %eax,%eax
- 906:	7e 0e                	jle    916 <semaphore_down+0x48>
-   binary_semaphore_up(sem->s2);
  908:	8b 45 08             	mov    0x8(%ebp),%eax
- 90b:	8b 40 04             	mov    0x4(%eax),%eax
- 90e:	89 04 24             	mov    %eax,(%esp)
- 911:	e8 8a fa ff ff       	call   3a0 <binary_semaphore_up>
+ 90b:	8b 40 08             	mov    0x8(%eax),%eax
+ 90e:	8d 50 ff             	lea    -0x1(%eax),%edx
+ 911:	8b 45 08             	mov    0x8(%ebp),%eax
+ 914:	89 50 08             	mov    %edx,0x8(%eax)
+  if(sem->value > 0){
+ 917:	8b 45 08             	mov    0x8(%ebp),%eax
+ 91a:	8b 40 08             	mov    0x8(%eax),%eax
+ 91d:	85 c0                	test   %eax,%eax
+ 91f:	7e 0e                	jle    92f <semaphore_down+0x48>
+   binary_semaphore_up(sem->s2);
+ 921:	8b 45 08             	mov    0x8(%ebp),%eax
+ 924:	8b 40 04             	mov    0x4(%eax),%eax
+ 927:	89 04 24             	mov    %eax,(%esp)
+ 92a:	e8 71 fa ff ff       	call   3a0 <binary_semaphore_up>
   }
   binary_semaphore_up(sem->s1); 
- 916:	8b 45 08             	mov    0x8(%ebp),%eax
- 919:	8b 00                	mov    (%eax),%eax
- 91b:	89 04 24             	mov    %eax,(%esp)
- 91e:	e8 7d fa ff ff       	call   3a0 <binary_semaphore_up>
+ 92f:	8b 45 08             	mov    0x8(%ebp),%eax
+ 932:	8b 00                	mov    (%eax),%eax
+ 934:	89 04 24             	mov    %eax,(%esp)
+ 937:	e8 64 fa ff ff       	call   3a0 <binary_semaphore_up>
 }
- 923:	c9                   	leave  
- 924:	c3                   	ret    
+ 93c:	c9                   	leave  
+ 93d:	c3                   	ret    
 
-00000925 <semaphore_up>:
+0000093e <semaphore_up>:
 void semaphore_up(struct semaphore* sem ){
- 925:	55                   	push   %ebp
- 926:	89 e5                	mov    %esp,%ebp
- 928:	83 ec 18             	sub    $0x18,%esp
+ 93e:	55                   	push   %ebp
+ 93f:	89 e5                	mov    %esp,%ebp
+ 941:	83 ec 18             	sub    $0x18,%esp
   binary_semaphore_down(sem->s1);
- 92b:	8b 45 08             	mov    0x8(%ebp),%eax
- 92e:	8b 00                	mov    (%eax),%eax
- 930:	89 04 24             	mov    %eax,(%esp)
- 933:	e8 60 fa ff ff       	call   398 <binary_semaphore_down>
+ 944:	8b 45 08             	mov    0x8(%ebp),%eax
+ 947:	8b 00                	mov    (%eax),%eax
+ 949:	89 04 24             	mov    %eax,(%esp)
+ 94c:	e8 47 fa ff ff       	call   398 <binary_semaphore_down>
   sem->value++;	
- 938:	8b 45 08             	mov    0x8(%ebp),%eax
- 93b:	8b 40 08             	mov    0x8(%eax),%eax
- 93e:	8d 50 01             	lea    0x1(%eax),%edx
- 941:	8b 45 08             	mov    0x8(%ebp),%eax
- 944:	89 50 08             	mov    %edx,0x8(%eax)
+ 951:	8b 45 08             	mov    0x8(%ebp),%eax
+ 954:	8b 40 08             	mov    0x8(%eax),%eax
+ 957:	8d 50 01             	lea    0x1(%eax),%edx
+ 95a:	8b 45 08             	mov    0x8(%ebp),%eax
+ 95d:	89 50 08             	mov    %edx,0x8(%eax)
   if(sem->value ==1){
- 947:	8b 45 08             	mov    0x8(%ebp),%eax
- 94a:	8b 40 08             	mov    0x8(%eax),%eax
- 94d:	83 f8 01             	cmp    $0x1,%eax
- 950:	75 0e                	jne    960 <semaphore_up+0x3b>
+ 960:	8b 45 08             	mov    0x8(%ebp),%eax
+ 963:	8b 40 08             	mov    0x8(%eax),%eax
+ 966:	83 f8 01             	cmp    $0x1,%eax
+ 969:	75 0e                	jne    979 <semaphore_up+0x3b>
    binary_semaphore_up(sem->s2); 
- 952:	8b 45 08             	mov    0x8(%ebp),%eax
- 955:	8b 40 04             	mov    0x4(%eax),%eax
- 958:	89 04 24             	mov    %eax,(%esp)
- 95b:	e8 40 fa ff ff       	call   3a0 <binary_semaphore_up>
+ 96b:	8b 45 08             	mov    0x8(%ebp),%eax
+ 96e:	8b 40 04             	mov    0x4(%eax),%eax
+ 971:	89 04 24             	mov    %eax,(%esp)
+ 974:	e8 27 fa ff ff       	call   3a0 <binary_semaphore_up>
    }
   binary_semaphore_up(sem->s1);
- 960:	8b 45 08             	mov    0x8(%ebp),%eax
- 963:	8b 00                	mov    (%eax),%eax
- 965:	89 04 24             	mov    %eax,(%esp)
- 968:	e8 33 fa ff ff       	call   3a0 <binary_semaphore_up>
- 96d:	c9                   	leave  
- 96e:	c3                   	ret    
+ 979:	8b 45 08             	mov    0x8(%ebp),%eax
+ 97c:	8b 00                	mov    (%eax),%eax
+ 97e:	89 04 24             	mov    %eax,(%esp)
+ 981:	e8 1a fa ff ff       	call   3a0 <binary_semaphore_up>
+}
+ 986:	c9                   	leave  
+ 987:	c3                   	ret    
+
+00000988 <semaphore_free>:
+
+void semaphore_free(struct semaphore* sem){
+ 988:	55                   	push   %ebp
+ 989:	89 e5                	mov    %esp,%ebp
+ 98b:	83 ec 18             	sub    $0x18,%esp
+  free(sem);
+ 98e:	8b 45 08             	mov    0x8(%ebp),%eax
+ 991:	89 04 24             	mov    %eax,(%esp)
+ 994:	e8 9b fc ff ff       	call   634 <free>
+}
+ 999:	c9                   	leave  
+ 99a:	c3                   	ret    
+ 99b:	90                   	nop
+
+0000099c <BB_create>:
+#include "types.h"
+#include "user.h"
+
+
+struct BB* 
+BB_create(int max_capacity){
+ 99c:	55                   	push   %ebp
+ 99d:	89 e5                	mov    %esp,%ebp
+ 99f:	83 ec 38             	sub    $0x38,%esp
+  //initialize
+  struct BB* buf = malloc(sizeof(struct BB));
+ 9a2:	c7 04 24 18 00 00 00 	movl   $0x18,(%esp)
+ 9a9:	e8 b5 fd ff ff       	call   763 <malloc>
+ 9ae:	89 45 f4             	mov    %eax,-0xc(%ebp)
+  buf->buffer_size = max_capacity;
+ 9b1:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ 9b4:	8b 55 08             	mov    0x8(%ebp),%edx
+ 9b7:	89 10                	mov    %edx,(%eax)
+  buf->mutex = binary_semaphore_create(1);  
+ 9b9:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+ 9c0:	e8 cb f9 ff ff       	call   390 <binary_semaphore_create>
+ 9c5:	8b 55 f4             	mov    -0xc(%ebp),%edx
+ 9c8:	89 42 04             	mov    %eax,0x4(%edx)
+  buf->empty = semaphore_create(max_capacity);
+ 9cb:	8b 45 08             	mov    0x8(%ebp),%eax
+ 9ce:	89 04 24             	mov    %eax,(%esp)
+ 9d1:	e8 6e fe ff ff       	call   844 <semaphore_create>
+ 9d6:	8b 55 f4             	mov    -0xc(%ebp),%edx
+ 9d9:	89 42 08             	mov    %eax,0x8(%edx)
+  buf->full = semaphore_create(0);
+ 9dc:	c7 04 24 00 00 00 00 	movl   $0x0,(%esp)
+ 9e3:	e8 5c fe ff ff       	call   844 <semaphore_create>
+ 9e8:	8b 55 f4             	mov    -0xc(%ebp),%edx
+ 9eb:	89 42 0c             	mov    %eax,0xc(%edx)
+  void** elements_array = (void**)malloc(sizeof(void*) * max_capacity); 
+ 9ee:	8b 45 08             	mov    0x8(%ebp),%eax
+ 9f1:	c1 e0 02             	shl    $0x2,%eax
+ 9f4:	89 04 24             	mov    %eax,(%esp)
+ 9f7:	e8 67 fd ff ff       	call   763 <malloc>
+ 9fc:	89 45 f0             	mov    %eax,-0x10(%ebp)
+  buf->pointer_to_elements = elements_array;  
+ 9ff:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a02:	8b 55 f0             	mov    -0x10(%ebp),%edx
+ a05:	89 50 14             	mov    %edx,0x14(%eax)
+  buf->count = 0;
+ a08:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a0b:	c7 40 10 00 00 00 00 	movl   $0x0,0x10(%eax)
+  //check the semaphorses
+  if(buf->mutex == -1 || buf->empty == 0 || buf->full == 0){
+ a12:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a15:	8b 40 04             	mov    0x4(%eax),%eax
+ a18:	83 f8 ff             	cmp    $0xffffffff,%eax
+ a1b:	74 14                	je     a31 <BB_create+0x95>
+ a1d:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a20:	8b 40 08             	mov    0x8(%eax),%eax
+ a23:	85 c0                	test   %eax,%eax
+ a25:	74 0a                	je     a31 <BB_create+0x95>
+ a27:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a2a:	8b 40 0c             	mov    0xc(%eax),%eax
+ a2d:	85 c0                	test   %eax,%eax
+ a2f:	75 44                	jne    a75 <BB_create+0xd9>
+   printf(1,"we had a problam getting semaphores at BB create mutex %d empty %d full %d\n",buf->mutex,buf->empty,buf->full);
+ a31:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a34:	8b 48 0c             	mov    0xc(%eax),%ecx
+ a37:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a3a:	8b 50 08             	mov    0x8(%eax),%edx
+ a3d:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a40:	8b 40 04             	mov    0x4(%eax),%eax
+ a43:	89 4c 24 10          	mov    %ecx,0x10(%esp)
+ a47:	89 54 24 0c          	mov    %edx,0xc(%esp)
+ a4b:	89 44 24 08          	mov    %eax,0x8(%esp)
+ a4f:	c7 44 24 04 00 0c 00 	movl   $0xc00,0x4(%esp)
+ a56:	00 
+ a57:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+ a5e:	e8 1c fa ff ff       	call   47f <printf>
+   free(buf);
+ a63:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ a66:	89 04 24             	mov    %eax,(%esp)
+ a69:	e8 c6 fb ff ff       	call   634 <free>
+   buf =0;  
+ a6e:	c7 45 f4 00 00 00 00 	movl   $0x0,-0xc(%ebp)
+  }
+  return buf;
+ a75:	8b 45 f4             	mov    -0xc(%ebp),%eax
+}
+ a78:	c9                   	leave  
+ a79:	c3                   	ret    
+
+00000a7a <BB_put>:
+
+void BB_put(struct BB* bb, void* element)
+{ 
+ a7a:	55                   	push   %ebp
+ a7b:	89 e5                	mov    %esp,%ebp
+ a7d:	83 ec 18             	sub    $0x18,%esp
+  semaphore_down(bb->empty);
+ a80:	8b 45 08             	mov    0x8(%ebp),%eax
+ a83:	8b 40 08             	mov    0x8(%eax),%eax
+ a86:	89 04 24             	mov    %eax,(%esp)
+ a89:	e8 59 fe ff ff       	call   8e7 <semaphore_down>
+  binary_semaphore_down(bb->mutex);
+ a8e:	8b 45 08             	mov    0x8(%ebp),%eax
+ a91:	8b 40 04             	mov    0x4(%eax),%eax
+ a94:	89 04 24             	mov    %eax,(%esp)
+ a97:	e8 fc f8 ff ff       	call   398 <binary_semaphore_down>
+   //insert item
+  bb->pointer_to_elements[bb->count] = element;
+ a9c:	8b 45 08             	mov    0x8(%ebp),%eax
+ a9f:	8b 50 14             	mov    0x14(%eax),%edx
+ aa2:	8b 45 08             	mov    0x8(%ebp),%eax
+ aa5:	8b 40 10             	mov    0x10(%eax),%eax
+ aa8:	c1 e0 02             	shl    $0x2,%eax
+ aab:	01 c2                	add    %eax,%edx
+ aad:	8b 45 0c             	mov    0xc(%ebp),%eax
+ ab0:	89 02                	mov    %eax,(%edx)
+  bb->count++;
+ ab2:	8b 45 08             	mov    0x8(%ebp),%eax
+ ab5:	8b 40 10             	mov    0x10(%eax),%eax
+ ab8:	8d 50 01             	lea    0x1(%eax),%edx
+ abb:	8b 45 08             	mov    0x8(%ebp),%eax
+ abe:	89 50 10             	mov    %edx,0x10(%eax)
+  binary_semaphore_up(bb->mutex);
+ ac1:	8b 45 08             	mov    0x8(%ebp),%eax
+ ac4:	8b 40 04             	mov    0x4(%eax),%eax
+ ac7:	89 04 24             	mov    %eax,(%esp)
+ aca:	e8 d1 f8 ff ff       	call   3a0 <binary_semaphore_up>
+  semaphore_up(bb->full);
+ acf:	8b 45 08             	mov    0x8(%ebp),%eax
+ ad2:	8b 40 0c             	mov    0xc(%eax),%eax
+ ad5:	89 04 24             	mov    %eax,(%esp)
+ ad8:	e8 61 fe ff ff       	call   93e <semaphore_up>
+  
+}
+ add:	c9                   	leave  
+ ade:	c3                   	ret    
+
+00000adf <BB_pop>:
+
+void* BB_pop(struct BB* bb)
+{
+ adf:	55                   	push   %ebp
+ ae0:	89 e5                	mov    %esp,%ebp
+ ae2:	83 ec 28             	sub    $0x28,%esp
+
+  semaphore_down(bb->full);
+ ae5:	8b 45 08             	mov    0x8(%ebp),%eax
+ ae8:	8b 40 0c             	mov    0xc(%eax),%eax
+ aeb:	89 04 24             	mov    %eax,(%esp)
+ aee:	e8 f4 fd ff ff       	call   8e7 <semaphore_down>
+  binary_semaphore_down(bb->mutex);
+ af3:	8b 45 08             	mov    0x8(%ebp),%eax
+ af6:	8b 40 04             	mov    0x4(%eax),%eax
+ af9:	89 04 24             	mov    %eax,(%esp)
+ afc:	e8 97 f8 ff ff       	call   398 <binary_semaphore_down>
+  void* element_to_pop = bb->pointer_to_elements[0];
+ b01:	8b 45 08             	mov    0x8(%ebp),%eax
+ b04:	8b 40 14             	mov    0x14(%eax),%eax
+ b07:	8b 00                	mov    (%eax),%eax
+ b09:	89 45 f0             	mov    %eax,-0x10(%ebp)
+  // shift left all elements at the array
+  int i;
+  for(i = 0; i < bb->count ; i++){
+ b0c:	c7 45 f4 00 00 00 00 	movl   $0x0,-0xc(%ebp)
+ b13:	eb 4b                	jmp    b60 <BB_pop+0x81>
+    if(i != (bb->count -1)){
+ b15:	8b 45 08             	mov    0x8(%ebp),%eax
+ b18:	8b 40 10             	mov    0x10(%eax),%eax
+ b1b:	83 e8 01             	sub    $0x1,%eax
+ b1e:	3b 45 f4             	cmp    -0xc(%ebp),%eax
+ b21:	74 25                	je     b48 <BB_pop+0x69>
+      bb->pointer_to_elements[i] = bb->pointer_to_elements[i+1];
+ b23:	8b 45 08             	mov    0x8(%ebp),%eax
+ b26:	8b 40 14             	mov    0x14(%eax),%eax
+ b29:	8b 55 f4             	mov    -0xc(%ebp),%edx
+ b2c:	c1 e2 02             	shl    $0x2,%edx
+ b2f:	01 c2                	add    %eax,%edx
+ b31:	8b 45 08             	mov    0x8(%ebp),%eax
+ b34:	8b 40 14             	mov    0x14(%eax),%eax
+ b37:	8b 4d f4             	mov    -0xc(%ebp),%ecx
+ b3a:	83 c1 01             	add    $0x1,%ecx
+ b3d:	c1 e1 02             	shl    $0x2,%ecx
+ b40:	01 c8                	add    %ecx,%eax
+ b42:	8b 00                	mov    (%eax),%eax
+ b44:	89 02                	mov    %eax,(%edx)
+ b46:	eb 14                	jmp    b5c <BB_pop+0x7d>
+    }else{
+      bb->pointer_to_elements[i] = 0;
+ b48:	8b 45 08             	mov    0x8(%ebp),%eax
+ b4b:	8b 40 14             	mov    0x14(%eax),%eax
+ b4e:	8b 55 f4             	mov    -0xc(%ebp),%edx
+ b51:	c1 e2 02             	shl    $0x2,%edx
+ b54:	01 d0                	add    %edx,%eax
+ b56:	c7 00 00 00 00 00    	movl   $0x0,(%eax)
+  semaphore_down(bb->full);
+  binary_semaphore_down(bb->mutex);
+  void* element_to_pop = bb->pointer_to_elements[0];
+  // shift left all elements at the array
+  int i;
+  for(i = 0; i < bb->count ; i++){
+ b5c:	83 45 f4 01          	addl   $0x1,-0xc(%ebp)
+ b60:	8b 45 08             	mov    0x8(%ebp),%eax
+ b63:	8b 40 10             	mov    0x10(%eax),%eax
+ b66:	3b 45 f4             	cmp    -0xc(%ebp),%eax
+ b69:	7f aa                	jg     b15 <BB_pop+0x36>
+      bb->pointer_to_elements[i] = bb->pointer_to_elements[i+1];
+    }else{
+      bb->pointer_to_elements[i] = 0;
+     }
+  }
+  bb->count--;
+ b6b:	8b 45 08             	mov    0x8(%ebp),%eax
+ b6e:	8b 40 10             	mov    0x10(%eax),%eax
+ b71:	8d 50 ff             	lea    -0x1(%eax),%edx
+ b74:	8b 45 08             	mov    0x8(%ebp),%eax
+ b77:	89 50 10             	mov    %edx,0x10(%eax)
+  binary_semaphore_up(bb->mutex);
+ b7a:	8b 45 08             	mov    0x8(%ebp),%eax
+ b7d:	8b 40 04             	mov    0x4(%eax),%eax
+ b80:	89 04 24             	mov    %eax,(%esp)
+ b83:	e8 18 f8 ff ff       	call   3a0 <binary_semaphore_up>
+  semaphore_up(bb->empty);
+ b88:	8b 45 08             	mov    0x8(%ebp),%eax
+ b8b:	8b 40 08             	mov    0x8(%eax),%eax
+ b8e:	89 04 24             	mov    %eax,(%esp)
+ b91:	e8 a8 fd ff ff       	call   93e <semaphore_up>
+  
+  return element_to_pop;
+ b96:	8b 45 f0             	mov    -0x10(%ebp),%eax
+}
+ b99:	c9                   	leave  
+ b9a:	c3                   	ret    
+
+00000b9b <BB_free>:
+
+void BB_free(struct BB* bb){
+ b9b:	55                   	push   %ebp
+ b9c:	89 e5                	mov    %esp,%ebp
+ b9e:	83 ec 18             	sub    $0x18,%esp
+    free(bb);
+ ba1:	8b 45 08             	mov    0x8(%ebp),%eax
+ ba4:	89 04 24             	mov    %eax,(%esp)
+ ba7:	e8 88 fa ff ff       	call   634 <free>
+ bac:	c9                   	leave  
+ bad:	c3                   	ret    

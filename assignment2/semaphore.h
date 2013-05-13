@@ -13,5 +13,6 @@ struct semaphore {
 };
 
 struct semaphore* semaphore_create(int initial_semaphore_value);
-void semaphore_down(struct semaphore* sem );
-void semaphore_up(struct semaphore* sem );
+void semaphore_down(struct semaphore* sem);
+void semaphore_up(struct semaphore* sem);
+void semaphore_free(struct semaphore* sem);
