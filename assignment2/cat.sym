@@ -33,14 +33,14 @@
 000003bc mknod
 00000226 gets
 000003f4 getpid
-000009e8 semaphore_up
+000009ea semaphore_up
 00000000 cat
 0000080f malloc
 00000404 sleep
-00000a32 semaphore_free
+00000a34 semaphore_free
 00000384 pipe
 00000394 write
-00000991 semaphore_down
+00000993 semaphore_down
 000003cc fstat
 000003a4 kill
 000008f0 semaphore_create

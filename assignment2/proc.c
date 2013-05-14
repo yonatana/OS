@@ -21,6 +21,7 @@ struct {
   struct spinlock lock;
   int next_sem;
   struct binary_semaphore binary_semaphore[NUM_OF_SEMAPHORES];
+  struct spinlock sem_locks[NUM_OF_SEMAPHORES];
 } sem_table;
 
 static struct proc *initproc;
@@ -94,7 +95,7 @@ found:
   return p;
 }
 
-
+/*
 static struct proc*
 thread_allocproc(void)
 {
@@ -138,7 +139,7 @@ found_t:
   p->thread_joined = -1;
   return p;
 }
-
+*/
 
 //PAGEBREAK: 32
 // Set up first user process.
@@ -243,7 +244,8 @@ fork(void)
     if(proc->ofile[i])
       np->ofile[i] = filedup(proc->ofile[i]);
   np->cwd = idup(proc->cwd);
- 
+  np->tid = 0;
+  np->thread_joined =0;
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
@@ -257,7 +259,7 @@ thread_create(void*(*start_func)(), void* stack, uint stack_size)
   struct proc *np;
 
   // Allocate process.
-  if((np = thread_allocproc()) == 0)//tid was update in thread_allocproc
+  if((np = allocproc()) == 0)//tid was update in thread_allocproc
     return -1;
 
   np->pid = proc->pid;//copy brother id
@@ -270,11 +272,14 @@ thread_create(void*(*start_func)(), void* stack, uint stack_size)
   else{//if procces create thread then it is his father
     np->parent = proc;
   }
-  np->is_thread = 1;
   acquire(&ptable.lock);
   np->parent->num_of_thread_child++;
+  np->tid =nexttid++;
   release(&ptable.lock);
-  //np->thread_joined= 0;
+  np->is_thread = 1;
+  np->thread_joined = 0;
+  //np->tid = ++(np->parent->tid);
+ 
   *np->tf = *proc->tf;
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -325,12 +330,8 @@ int thread_join(int thread_id, void** ret_val){
 	  cprintf("Thread %d was called thread_join from Process %d but real parent was %d\n",p->tid,proc->pid,p->parent->pid); 
 	  release(&ptable.lock);
 	  return -2;
-	}
-	if(p->thread_joined != -1 && proc->pid != p->thread_joined){ //thread is already been waited by other thread
-	   cprintf("Thread %d from Process %d  already joined by Thread %d\n",p->tid,p->parent->pid,p->thread_joined); 
-	   release(&ptable.lock);
-	   return -1;
-	}
+	 }	
+	
 	if(p->state == ZOMBIE){//everything is cool
 	  //*ret_val =  (void*)p->tf->eax;
 	  ret_val =  &(p->ret_val);
@@ -339,9 +340,7 @@ int thread_join(int thread_id, void** ret_val){
 	}
 	found = 1;
 	p->thread_joined = 1;
-	//
 	break;
-	
       }
     }
     if(!found){
@@ -361,7 +360,7 @@ int thread_join(int thread_id, void** ret_val){
 void 
 thread_exit(void * ret_val){
   acquire(&ptable.lock);
-  //struct proc* p;
+  
   if(proc->is_thread){//not the main procces
     if(proc->parent->num_of_thread_child==1){//the main thread already thread_exit and also all other thread
       proc->parent->num_of_thread_child--;
@@ -402,6 +401,7 @@ binary_semaphore_create(int initial_value){//###################################
       continue;
     }
     sem->initialize = 1;
+    initlock(&sem_table.sem_locks[i],"binary_semaphore");
     sem->value = initial_value;
     sem->first_in_queue = 0;
     sem->last_in_queue = 0;
@@ -419,26 +419,25 @@ binary_semaphore_create(int initial_value){//###################################
  */
 int 
 binary_semaphore_down(int binary_semaphore_ID){
-  
-  acquire(&sem_table.lock);
+  acquire(&sem_table.sem_locks[binary_semaphore_ID]);
   struct binary_semaphore* sem = &sem_table.binary_semaphore[binary_semaphore_ID] ;
+  //acquire(&sem_table.lock);
   
+  
+  //give the new thread a place in queue
   if(sem->waiting){
     proc->sem_queue_pos = ++(sem->waiting);
   }
   
   for(;;){
     if(sem->initialize){
-      //if(sem->value && !proc->sem_queue_pos  == sem->first_in_queue){//the sem is not locked && the thread is the next one
       if(sem->value && !proc->sem_queue_pos){//the sem is not locked && the thread is the next one
 	sem->value = 0;//sem is locked
 	proc->wait_for_sem = -1;//done waiting TODO (proc->wait_for_sem maybe useless)
-	//cprintf("TEST2 Thread %d sem %d sem->first_in_queue %d thread->pos %d\n",proc->tid,binary_semaphore_ID,sem->first_in_queue,proc->sem_queue_pos );
-	release(&sem_table.lock);
+	release(&sem_table.sem_locks[binary_semaphore_ID]);
 	return 0;
       }
       else{//the sem is locked or this is this the first time for this thread
-	//if(proc->sem_queue_pos  < sem->first_in_queue){
 	  if(!proc->sem_queue_pos){
 	    proc->sem_queue_pos = ++(sem->waiting);
 	  }
@@ -446,7 +445,7 @@ binary_semaphore_down(int binary_semaphore_ID){
 	  //sem->last_in_queue++;
 	  //proc->sem_queue_pos  = sem->last_in_queue;
 // 	  cprintf("TEST2 Thread %d sem %d sem->first_in_queue %d thread->pos %d\n",proc->tid,binary_semaphore_ID,sem->first_in_queue,proc->sem_queue_pos );
-	  //continue; //try again before sleeping (prevents deadlock - everybody sleeping)
+	  continue; //try again before sleeping (prevents deadlock - everybody sleeping)
 	  sleep(sem,&sem_table.lock);
       }
     }
@@ -465,10 +464,10 @@ binary_semaphore_down(int binary_semaphore_ID){
 
 int
 binary_semaphore_up(int binary_semaphore_ID){
-  //sem part
-  acquire(&sem_table.lock);//TODO see if needed
+  
+  acquire(&sem_table.sem_locks[binary_semaphore_ID]);
   struct binary_semaphore* sem = &sem_table.binary_semaphore[binary_semaphore_ID];
-  if(sem->initialize){     
+  if(sem->initialize){   
     struct proc *p;
     struct proc* next = 0;
     //looking for whom to wakeup who are sleeping and next
@@ -482,6 +481,8 @@ binary_semaphore_up(int binary_semaphore_ID){
 	    next = p;
       }
     }
+    sem->value = 1;//sem is available
+     
     if(sem->waiting>0){
 	sem->waiting--;
     }
@@ -489,17 +490,17 @@ binary_semaphore_up(int binary_semaphore_ID){
     if(next && next->state == SLEEPING)
       next->state = RUNNABLE;
     
-    sem->value = 1;//sem is available
+   
     sem->first_in_queue++;
     release(&ptable.lock);
-    release(&sem_table.lock);//realsing the sem
+    release(&sem_table.sem_locks[binary_semaphore_ID]);//realsing the sem
     
     
     //wakeup1(sem);
     return 0;
   }
   else{
-    release(&sem_table.lock);//realsing the sem
+    release(&sem_table.sem_locks[binary_semaphore_ID]);//realsing the sem
     cprintf("we had problem at binary_semaphore_up: the semaphore wasn't initialize\n"); 
     return -1;
   }
@@ -543,7 +544,7 @@ exit(void)
 	    p->parent->num_of_thread_child--;
 	  }
 	  if(!p->parent->num_of_thread_child){
-	    wakeup1(p->parent);
+	    wakeup1(p->parent->parent);
 	  }
 	}
     else{
@@ -563,7 +564,6 @@ exit(void)
   
   // Jump into the scheduler, never to return.
   proc->state = ZOMBIE;
-  //cprintf("EXIT pid %d\n",proc->pid);
   sched();
   panic("zombie exit");
 }
@@ -595,7 +595,7 @@ wait(void)
 	if(p->pid != found_p){
 	  continue;
 	}
-	
+
 	if(!first_p)
 	{
 	 freevm(p->pgdir);
@@ -852,5 +852,3 @@ procdump(void)
     cprintf("\n");
   }
 }
-
-

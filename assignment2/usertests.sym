@@ -39,14 +39,14 @@
 00003ada gets
 00003ca8 getpid
 000006aa pipe1
-0000429c semaphore_up
+0000429e semaphore_up
 00002c5a iref
 000040c3 malloc
 00003cb8 sleep
 000035dd fsfull
 00001b62 bigdir
 00002d7e forktest
-000042e6 semaphore_free
+000042e8 semaphore_free
 000002c0 writetest1
 0000241d bigwrite
 00000b54 sharedfd
@@ -55,7 +55,7 @@
 00006500 uninit
 00002a18 dirfile
 00003c48 write
-00004245 semaphore_down
+00004247 semaphore_down
 00003442 bsstest
 0000641c echoargv
 00003c80 fstat

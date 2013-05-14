@@ -14,15 +14,15 @@ struct semaphore* semaphore_create(int initial_semaphore_value){
   }else{
     sem->s2 = binary_semaphore_create(initial_semaphore_value);
   }
+  
   if(sem->s1 == -1 || sem->s2 == -1){
      printf(1,"we had a probalem initialize in semaphore_create\n");
      free(sem);
-     sem =0;
      return 0;
   }
   //initialize value
   sem->value = initial_semaphore_value;//dynamic
-  //sem->initial_value = initial_semaphore_value;//static
+  sem->initial_value = initial_semaphore_value;//static
   
   return sem;
 }

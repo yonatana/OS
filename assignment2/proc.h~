@@ -16,14 +16,6 @@ struct cpu {
   struct proc *proc;           // The currently-running process.
 };
 
-struct binary_semaphore{
- int value;//0 is locked, 1 is free
- int initialize;//if > 0 then the semaphore was initialize
- int waiting;//how meny are sleeping on this semaphore
- int first_in_queue; //place of first
- int last_in_queue; //place of last
-} binary_semaphore;
-
 extern struct cpu cpus[NCPU];
 extern int ncpu;
 
@@ -87,11 +79,7 @@ struct proc {
   int thread_joined;		// Identifier of the thread that needs to be waited for. Initialized to -1 => no thread to wait for
   int tid;			//all thread from same father have special id
   int wait_for_sem;		//the Id of semaphore this thread is waiting for
-  //int sem_queue_pos[128];	// while waiting to a semaphore, this is the place in queue (array of semaphores to wait at)
-  void* ret_val;		// thread return value
-  int sem_queue_pos;		// while waiting to a semaphore, this is the place in queue (array of semaphores to wait at)
-  int num_of_thread_child;	//number of thread made by that process
-  
+  int sem_queue_pos[128];	// while waiting to a semaphore, this is the place in queue (array of semaphores to wait at)
 };
 
 // Process memory is laid out contiguously, low addresses first:
