@@ -96,7 +96,7 @@ Cup* wash_dirty(){
 
 // student simulation
 void* student(){
-    void* ret_val = 0;
+   // void* ret_val = 0;
     enter_bar();
     //binary_semaphore_down(general_mutex);
     int tid = thread_getId();
@@ -111,7 +111,7 @@ void* student(){
 	place_action(drink_action);//Order a Drink
 	struct Cup * cup = get_drink();	//get the drink from the BB
 	//need to write to file intsead of screen TODO
-	printf(1,"Student %d is having his %d drink, with cup %d\n",tid,i+1,cup->id);
+	printf(file_to_write,"Student %d is having his %d drink, with cup %d\n",tid,i+1,cup->id);
 	sleep(1);
 	struct Action* retrun_action = malloc(sizeof(struct Action));
 	retrun_action->action_type = RETURN_CUP;
@@ -120,7 +120,7 @@ void* student(){
 	place_action(retrun_action);
     }
     //need to write to file intsead of screen TODO
-    printf(1,"Student %d is drunk, and trying to go home\n",thread_getId());
+    printf(file_to_write,"Student %d is drunk, and trying to go home\n",thread_getId());
     leave_bar();
     thread_exit(0);
     return 0;
@@ -130,60 +130,69 @@ void* student(){
 void* bartender(){
     void* ret_val = 0;
     int tid = thread_getId();
+    double amount =0;
+    double buf_size =0;
     for(;;){
 	struct Action* bartender_action = get_action();	
 	if(bartender_action->action_type == DRINK_ORDER){
 	    struct Cup* current_cup = get_clean_cup();
 	    //need to write to file intsead of screen TODO
-	    printf(1,"Bartender %d is making drink with cup %d\n",tid,current_cup->id);
+	    printf(file_to_write,"Bartender %d is making drink with cup %d\n",tid,current_cup->id);
 	    serve_drink(current_cup);
 	}
 	else if(bartender_action->action_type == RETURN_CUP){
 	  struct Cup* current_cup = bartender_action->cup;  
 	  return_cup(current_cup);
 	  //need to write to file intsead of screen TODO
-	  printf(1,"Bartender %d returned cup %d\n",tid,current_cup->id);
-	    
-	  if(((DBB->count * 100) / DBB->buffer_size) >= 60){ //wakeup cup_boy
-	      binary_semaphore_up(cup_boy_lock);
+	  printf(file_to_write,"Bartender %d returned cup %d\n",tid,current_cup->id);
+	  amount = DBB->full->value;
+	  buf_size = DBB->buffer_size;
+
+	  if((amount*100)/buf_size >= 0.6){
+	    binary_semaphore_up(cup_boy_lock);
 	    }
 	}
 	if(bartender_action->action_type == GO_HOME){
 	  thread_exit(ret_val);
 	}
-	free(bartender_action);
+	
+	
 	//TODO remove
-	//bartender_action->action_type = UNDEFINED;
-	//bartender_action->cup = 0;
+	bartender_action->action_type = UNDEFINED;
+	bartender_action->cup = 0;
+	free(bartender_action);
     }
     return ret_val;
 }
 
 
 // Cup boy simulation
-void* cup_boy(){
+void* cup_boy(void){
   void* ret_val = 0;
   cup_boy_lock = binary_semaphore_create(0);
+  int i,n;
   for(;;){
-    if(finished_shift){
-	thread_exit(ret_val);
-    }
-    int n = BB_size(DBB);//TODO is it bad?
-    int i;
+     //n = BB_size(DBB);//TODO is it bad?
+    n =DBB->full->value;
+   
     
     for(i = 0; i < n; i++){
 	struct Cup* current_cup = wash_dirty();
 	sleep(1);
 	add_clean_cup(current_cup);
 	//need to write to file intsead of screen TODO
-	printf(1,"Cup boy added clean cup %d\n",current_cup->id);
+	printf(file_to_write,"Cup boy added clean cup %d\n",current_cup->id);
     }
    binary_semaphore_down(cup_boy_lock); 
+   if(finished_shift){
+	thread_exit(ret_val);
+    }
   }
   return 0;
 }
 
 // thread_joins on students and bartenders
+
 void join_peoples(int* tids,int num_of_peoples){
   void* ret_val;
   int i;
@@ -266,7 +275,7 @@ int main(int argc, char** argv) {
   S = inputs_parsed[3];
   M = inputs_parsed[4];
   
-  printf(1,"A: %d B: %d C: %d  S: %d M: %d\n",A,B,C,S,M);
+  printf(file_to_write,"A: %d B: %d C: %d  S: %d M: %d\n",A,B,C,S,M);
   
   void* students_stacks[S];
   void* bartenders_stacks[B];
@@ -279,7 +288,7 @@ int main(int argc, char** argv) {
   
   file_to_write = open("out.txt",(O_CREATE | O_WRONLY)); //
   if(file_to_write == -1){
-      printf(1,"There was an error opening out.txt\n");
+      printf(file_to_write,"There was an error opening out.txt\n");
       exit();
   }
   
@@ -323,7 +332,6 @@ int main(int argc, char** argv) {
       student_tids[i] = thread_create((void*)student,students_stacks[i],sizeof(void*)*STACK_SIZE);
   }
   
-   
    join_peoples(student_tids,S); //join students
    finished_shift = 1;
    if(finished_shift){

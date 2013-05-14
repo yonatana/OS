@@ -166,7 +166,7 @@ UPROGS=\
 	_wc\
 	_zombie\
 	_threadTest\
-	_Beinstein\
+	_Bienstein\
 
 fs.img: mkfs README con.conf $(UPROGS)
 	./mkfs fs.img README con.conf $(UPROGS)

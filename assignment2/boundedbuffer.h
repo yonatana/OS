@@ -22,3 +22,4 @@ void BB_put(struct BB* bb, void* element);
 void* BB_pop(struct BB* bb);
 void BB_free(struct BB* bb);
 int BB_size(struct BB* bb);
+int BB_buffer_size(struct BB* bb);
