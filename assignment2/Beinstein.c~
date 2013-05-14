@@ -1,4 +1,3 @@
-#include "semaphore.h"
 #include "fcntl.h"
 #include "boundedbuffer.h"
 #include "types.h"
@@ -99,68 +98,65 @@ Cup* wash_dirty(){
 void* student(){
     void* ret_val = 0;
     enter_bar();
-    binary_semaphore_down(general_mutex);
-    int k = thread_getId();
-    binary_semaphore_up(general_mutex);
-    k = k % 5;
+    //binary_semaphore_down(general_mutex);
+    int tid = thread_getId();
+   // binary_semaphore_up(general_mutex);
+    tid = tid % 5;
     int i;
-    for(i = 0; i < k; i++){
-	struct Action* student_action = (Action*)malloc(sizeof(Action));
-	student_action->action_type = DRINK_ORDER;
-	student_action->cup = 0;
-	place_action(student_action);
-	student_action->cup = get_drink();
+    for(i = 0; i < tid; i++){
+	struct Action* drink_action = malloc(sizeof(struct Action));
+	drink_action->action_type = DRINK_ORDER;
+	drink_action->cup = 0;
+	drink_action->tid = tid;
+	place_action(drink_action);//Order a Drink
+	struct Cup * cup = get_drink();	//get the drink from the BB
 	//need to write to file intsead of screen TODO
-	binary_semaphore_down(general_mutex);
-	printf(1,"Student %d is having his %d drink, with cup %d\n",thread_getId(),i+1,student_action->cup->id);
-	binary_semaphore_up(general_mutex);
+	printf(1,"Student %d is having his %d drink, with cup %d\n",tid,i+1,cup->id);
 	sleep(1);
-	student_action->action_type = RETURN_CUP;
-	place_action(student_action);
+	struct Action* retrun_action = malloc(sizeof(struct Action));
+	retrun_action->action_type = RETURN_CUP;
+	retrun_action->cup=cup;
+	retrun_action->tid = tid;
+	place_action(retrun_action);
     }
     //need to write to file intsead of screen TODO
-    binary_semaphore_down(general_mutex);
     printf(1,"Student %d is drunk, and trying to go home\n",thread_getId());
-    binary_semaphore_up(general_mutex);
     leave_bar();
-    thread_exit(ret_val);
+    thread_exit(0);
     return 0;
 }
 
 //bartender simulation
 void* bartender(){
     void* ret_val = 0;
-   
-    struct Cup* current_cup = 0;
+    int tid = thread_getId();
     for(;;){
-	struct Action* bartender_action = 0;
-	binary_semaphore_down(general_mutex);
-	if(((DBB->count * 100) / DBB->buffer_size) >= 60){ //wakeup cup_boy
-	  binary_semaphore_up(cup_boy_lock);
-	}
-	binary_semaphore_up(general_mutex);
-	bartender_action = get_action();
+	struct Action* bartender_action = get_action();	
 	if(bartender_action->action_type == DRINK_ORDER){
-	    current_cup = get_clean_cup();
+	    struct Cup* current_cup = get_clean_cup();
 	    //need to write to file intsead of screen TODO
-	    binary_semaphore_down(general_mutex);
-	    printf(1,"Bartender %d is making drink with cup %d\n",thread_getId(),current_cup->id);
-	    binary_semaphore_up(general_mutex);
+	    printf(1,"Bartender %d is making drink with cup %d\n",tid,current_cup->id);
 	    serve_drink(current_cup);
 	}
-	if(bartender_action->action_type == RETURN_CUP){
-	    return_cup(current_cup);
-	    //need to write to file intsead of screen TODO
-	    binary_semaphore_down(general_mutex);
-	    printf(1,"Bartender %d returned cup %d\n",thread_getId(),current_cup->id);
-	    binary_semaphore_up(general_mutex);
+	else if(bartender_action->action_type == RETURN_CUP){
+	  struct Cup* current_cup = bartender_action->cup;  
+	  return_cup(current_cup);
+	  //need to write to file intsead of screen TODO
+	  printf(1,"Bartender %d returned cup %d\n",tid,current_cup->id);
+	    
+	  if(((DBB->count * 100) / DBB->buffer_size) >= 60){ //wakeup cup_boy
+	      binary_semaphore_up(cup_boy_lock);
+	    }
 	}
 	if(bartender_action->action_type == GO_HOME){
 	  thread_exit(ret_val);
 	}
-	bartender_action->action_type = UNDEFINED;
-	bartender_action->cup = 0;
+	free(bartender_action);
+	//TODO remove
+	//bartender_action->action_type = UNDEFINED;
+	//bartender_action->cup = 0;
     }
+    return ret_val;
 }
 
 
@@ -172,20 +168,19 @@ void* cup_boy(){
     if(finished_shift){
 	thread_exit(ret_val);
     }
-    int n = DBB->count;
+    int n = BB_size(DBB);//TODO is it bad?
     int i;
-    struct Cup* current_cup = 0;
+    
     for(i = 0; i < n; i++){
-	current_cup = wash_dirty();
+	struct Cup* current_cup = wash_dirty();
 	sleep(1);
 	add_clean_cup(current_cup);
 	//need to write to file intsead of screen TODO
-	binary_semaphore_down(general_mutex);
 	printf(1,"Cup boy added clean cup %d\n",current_cup->id);
-	binary_semaphore_up(general_mutex);
     }
    binary_semaphore_down(cup_boy_lock); 
   }
+  return 0;
 }
 
 // thread_joins on students and bartenders
@@ -208,7 +203,6 @@ void release_workers(int num_of_bartenders){
  for(i = 0; i< num_of_bartenders; i++){
     place_action(release_bartender_action);
  }
- 
  //release cup_boy
  binary_semaphore_up(cup_boy_lock);
 }
@@ -302,28 +296,33 @@ int main(int argc, char** argv) {
    //initialize C clean cups
    struct Cup* cup_array[C];
    for(i = 0; i < C; i++){
-      cup_array[i] = (Cup*)malloc(sizeof(Cup)); //TODO free cups
+      cup_array[i] = malloc(sizeof(struct Cup)); //TODO free cups
       cup_array[i]->id = i;
       add_clean_cup(cup_array[i]);
    }
    
    //initialize cup_boy
-   cup_boy_stack = (void*)malloc(STACK_SIZE);
-   thread_create((void*)cup_boy,cup_boy_stack,STACK_SIZE); 
+   cup_boy_stack = (void*)malloc(sizeof(void*)*STACK_SIZE);
+    memset(cup_boy_stack,0,sizeof(void*)*1024);
+   if(thread_create((void*)cup_boy,cup_boy_stack,sizeof(void*)*1024) < 0){
+     printf(2,"Failed to create cupboy thread. Exiting...\n");
+    exit();
+   }
    
    //initialize B bartenders
    for(i = 0; i < B; i++){
-      bartenders_stacks[i] = (void*)malloc(STACK_SIZE);
-      bartender_tids[i] = thread_create((void*)bartender,bartenders_stacks[i],STACK_SIZE);
+      bartenders_stacks[i] = (void*)malloc(sizeof(void*)*STACK_SIZE);
+      memset(bartenders_stacks[i],0,sizeof(void*)*1024);
+      bartender_tids[i] = thread_create((void*)bartender,bartenders_stacks[i],sizeof(void*)*STACK_SIZE);//TODO test
   }
    
    //initialize S students
-   for(i = 0; i < S; i++){
-      students_stacks[i] = (void*)malloc(STACK_SIZE);
-      student_tids[i] = thread_create((void*)student,students_stacks[i],STACK_SIZE);
+   for(i = 0; i < S; i++){//TODO test for fail
+      students_stacks[i] = malloc(sizeof(void*)*STACK_SIZE);
+      memset(students_stacks[i],0,sizeof(void*)*STACK_SIZE);
+      student_tids[i] = thread_create((void*)student,students_stacks[i],sizeof(void*)*STACK_SIZE);
   }
   
-
    
    join_peoples(student_tids,S); //join students
    finished_shift = 1;

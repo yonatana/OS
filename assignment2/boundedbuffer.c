@@ -13,27 +13,22 @@ BB_create(int max_capacity){
   buf->mutex = binary_semaphore_create(1);  
   buf->empty = semaphore_create(max_capacity);
   buf->full = semaphore_create(0);
-  
-  //void** elements_array = (void**)malloc(sizeof(void*) * max_capacity); 
-  //memset(buf->elements_array,0,sizeof(void*)*max_capacity);
-  //buf->pointer_to_elements = elements_array;  
-  
   buf->pointer_to_elements = malloc(sizeof(void*)*max_capacity);
   memset(buf->pointer_to_elements,0,sizeof(void*)*max_capacity);
-  
-  buf->count = 0;
+  buf->count = 0;//TODO remove or not
   //check the semaphorses
   if(buf->mutex == -1 || buf->empty == 0 || buf->full == 0){
    printf(1,"we had a problam getting semaphores at BB create mutex %d empty %d full %d\n",buf->mutex,buf->empty,buf->full);
-   free(buf->pointer_to_elements);
-   free(buf);
+   BB_free(buf);
+   //free(buf->pointer_to_elements);//TODO remove
+   //free(buf);
    buf =0;  
   }
   return buf;
 }
 
 void BB_put(struct BB* bb, void* element)
-{ 
+{ //TODO mix
   /*semaphore_down(bb->empty);
   binary_semaphore_down(bb->mutex);
    //insert item
@@ -54,7 +49,7 @@ void BB_put(struct BB* bb, void* element)
 }
 
 void* BB_pop(struct BB* bb)
-{
+{//TODO clean and mix
   
   void* element_to_pop;
   semaphore_down(bb->full);
@@ -101,4 +96,15 @@ void* BB_pop(struct BB* bb)
 void BB_free(struct BB* bb){
   free(bb->pointer_to_elements);
   free(bb);
+}
+
+int BB_size(struct BB* bb){
+  printf(1,"size\n");
+  int ans =0;
+  semaphore_down(bb->full);
+  binary_semaphore_down(bb->mutex);
+  ans = bb->full->value;
+  binary_semaphore_up(bb->mutex);
+  semaphore_up(bb->empty);
+  return ans;
 }

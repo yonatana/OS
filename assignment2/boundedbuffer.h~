@@ -6,11 +6,13 @@
 
 
 struct BB {
- int buffer_size;
- int mutex;//protect the CS
+volatile int buffer_size;
+volatile int mutex;//protect the CS
   struct semaphore* empty; // empty slots
   struct semaphore* full; // full slots
- int count;
+volatile int count;
+volatile int start;
+volatile int end;
  void** pointer_to_elements; //need to be at least max_capacity
 };
 

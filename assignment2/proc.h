@@ -89,7 +89,7 @@ struct proc {
   int wait_for_sem;		//the Id of semaphore this thread is waiting for
   //int sem_queue_pos[128];	// while waiting to a semaphore, this is the place in queue (array of semaphores to wait at)
   void* ret_val;		// thread return value
-  int sem_queue_pos;		// while waiting to a semaphore, this is the place in queue (array of semaphores to wait at)
+  int sem_queue_pos;		// while waiting to a semaphore, this is the place in queue 
   int num_of_thread_child;	//number of thread made by that process
   
 };
