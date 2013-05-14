@@ -6,10 +6,10 @@
 
 
 struct semaphore {
-  int s1;//semaphore 1 id
-  int s2;//semaphore 2 id	  
-  int value;
-  int initial_value;
+  volatile int s1;//semaphore 1 id
+  volatile int s2;//semaphore 2 id	  
+  volatile int value;
+  volatile int initial_value;
 };
 
 struct semaphore* semaphore_create(int initial_semaphore_value);

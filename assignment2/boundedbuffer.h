@@ -11,6 +11,8 @@ struct BB {
   struct semaphore* empty; // empty slots
   struct semaphore* full; // full slots
  int count;
+ int start;
+ int end;
  void** pointer_to_elements; //need to be at least max_capacity
 };
 

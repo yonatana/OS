@@ -14,13 +14,7 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
-typedef struct binary_semaphore{
- struct spinlock lock;  //TODO - not sure we need spinlock here
- int value;//0 is locked, 1 is free
- int initialize;//if > 0 then the semaphore was initialize
- int first_in_queue; //place of first
- int last_in_queue; //place of last
-} binary_semaphore;
+
 
 
 struct {
@@ -41,12 +35,13 @@ static void wakeup1(void *chan);
 void
 pinit(void)
 {
-  int i;
+ 
   initlock(&ptable.lock, "ptable");
   initlock(&sem_table.lock, "sem_table"); // initial sem_table lock
-  for(i = 0; i<NUM_OF_SEMAPHORES ; i++){	// initialize every semaphore lock in sem_table
-      initlock(&sem_table.binary_semaphore[i].lock,"semaphore");
-  }
+  //int i;
+  //for(i = 0; i<NUM_OF_SEMAPHORES ; i++){	// initialize every semaphore lock in sem_table
+    //  initlock(&sem_table.binary_semaphore[i].lock,"semaphore");
+  //}
 }
 
 //PAGEBREAK: 32
@@ -94,6 +89,8 @@ found:
   p->context->eip = (uint)forkret;
   p->is_thread = 0;
   p->thread_joined = -1;
+  p->num_of_thread_child =1;
+  p->wait_for_sem = -1;
   return p;
 }
 
@@ -274,6 +271,9 @@ thread_create(void*(*start_func)(), void* stack, uint stack_size)
     np->parent = proc;
   }
   np->is_thread = 1;
+  acquire(&ptable.lock);
+  np->parent->num_of_thread_child++;
+  release(&ptable.lock);
   //np->thread_joined= 0;
   *np->tf = *proc->tf;
   // Clear %eax so that fork returns 0 in the child.
@@ -319,13 +319,12 @@ int thread_join(int thread_id, void** ret_val){
   struct proc *p;
   int found = 0;
   acquire(&ptable.lock);
-  for(;;){
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->is_thread == 1 && p->tid == thread_id){ //this is the thread we were looking for
-	if(p->parent != proc){
+      if(p != proc && p->pid == proc->pid && p->is_thread && p->tid == thread_id){ //this is the thread we were looking for
+	if(p->thread_joined){
 	  cprintf("Thread %d was called thread_join from Process %d but real parent was %d\n",p->tid,proc->pid,p->parent->pid); 
-	   release(&ptable.lock);
-	   return -2;
+	  release(&ptable.lock);
+	  return -2;
 	}
 	if(p->thread_joined != -1 && proc->pid != p->thread_joined){ //thread is already been waited by other thread
 	   cprintf("Thread %d from Process %d  already joined by Thread %d\n",p->tid,p->parent->pid,p->thread_joined); 
@@ -333,21 +332,14 @@ int thread_join(int thread_id, void** ret_val){
 	   return -1;
 	}
 	if(p->state == ZOMBIE){//everything is cool
-	  *ret_val =  (void*)p->tf->eax;
-	  p->state = UNUSED;
-	  p->pid = 0;
-	  p->parent = 0;
-	  p->name[0] = 0;
-	  p->killed = 0;
-	  p->is_thread = 0;
-	  p->thread_joined = -1;
-	  p->tid = 0;
-	  p->wait_for_sem = 0;
+	  //*ret_val =  (void*)p->tf->eax;
+	  ret_val =  &(p->ret_val);
 	  release(&ptable.lock);
 	  return 0;
 	}
 	found = 1;
-	p->thread_joined = proc->pid;
+	p->thread_joined = 1;
+	//
 	break;
 	
       }
@@ -358,42 +350,49 @@ int thread_join(int thread_id, void** ret_val){
 	return -1;
     }else{
 	//current process wait for thread to terminate
-	sleep(proc,&ptable.lock);
+	sleep(p,&ptable.lock);
+	release(&ptable.lock);
 	found = 0;
     }
-  }
-  
-  
   return 0;
 }
 
 
 void 
 thread_exit(void * ret_val){
-  struct proc* p;
+  acquire(&ptable.lock);
+  //struct proc* p;
   if(proc->is_thread){//not the main procces
-    ret_val =  (void*)proc->tf->eax;
-    proc->state = ZOMBIE;
-   
-    acquire(&ptable.lock);
-    if(proc->thread_joined != -1){
-      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-	if(p->pid == proc->thread_joined){
-	  wakeup1(p);
-	  break;
-	}
-      }
+    if(proc->parent->num_of_thread_child==1){//the main thread already thread_exit and also all other thread
+      proc->parent->num_of_thread_child--;
+      release(&ptable.lock);
+      exit();
     }
-    
+  //this is not the last thread by any mean
+    proc->ret_val = ret_val;			// not main thread and not the last one
+    proc->parent->num_of_thread_child--;
+    proc->state = ZOMBIE;
+    if(proc->thread_joined)
+      wakeup1(proc);
     sched();
+    release(&ptable.lock);
   }
-  else{
+    
+  else if (proc->num_of_thread_child == 1){//this is the main thread and it is the last thread
+    proc->num_of_thread_child--;
+    release(&ptable.lock);
     exit();
+  }
+  else{//this is the main thread but other thread are alive
+    proc->num_of_thread_child--;
+    proc->state = ZOMBIE;
+    sched();
+    release(&ptable.lock);
   }
 }
 
 int 
-binary_semaphore_create(int initial_value){
+binary_semaphore_create(int initial_value){//#####################################################################################
   struct binary_semaphore* sem;
   int i=0;
   acquire(&sem_table.lock);
@@ -420,25 +419,34 @@ binary_semaphore_create(int initial_value){
  */
 int 
 binary_semaphore_down(int binary_semaphore_ID){
+  
   acquire(&sem_table.lock);
+  struct binary_semaphore* sem = &sem_table.binary_semaphore[binary_semaphore_ID] ;
+  
+  if(sem->waiting){
+    proc->sem_queue_pos = ++(sem->waiting);
+  }
+  
   for(;;){
-    struct binary_semaphore* sem = &sem_table.binary_semaphore[binary_semaphore_ID];
     if(sem->initialize){
-      if(sem->value && proc->sem_queue_pos[binary_semaphore_ID] == sem->first_in_queue){//the sem is not locked && the thread is the next one
+      //if(sem->value && !proc->sem_queue_pos  == sem->first_in_queue){//the sem is not locked && the thread is the next one
+      if(sem->value && !proc->sem_queue_pos){//the sem is not locked && the thread is the next one
 	sem->value = 0;//sem is locked
 	proc->wait_for_sem = -1;//done waiting TODO (proc->wait_for_sem maybe useless)
-	//cprintf("TEST2 Thread %d sem %d sem->first_in_queue %d thread->pos %d\n",proc->tid,binary_semaphore_ID,sem->first_in_queue,proc->sem_queue_pos[binary_semaphore_ID]);
+	//cprintf("TEST2 Thread %d sem %d sem->first_in_queue %d thread->pos %d\n",proc->tid,binary_semaphore_ID,sem->first_in_queue,proc->sem_queue_pos );
 	release(&sem_table.lock);
 	return 0;
       }
       else{//the sem is locked or this is this the first time for this thread
-	if(proc->sem_queue_pos[binary_semaphore_ID] < sem->first_in_queue){
+	//if(proc->sem_queue_pos  < sem->first_in_queue){
+	  if(!proc->sem_queue_pos){
+	    proc->sem_queue_pos = ++(sem->waiting);
+	  }
 	  proc->wait_for_sem = binary_semaphore_ID;
-	  sem->last_in_queue++;
-	  proc->sem_queue_pos[binary_semaphore_ID] = sem->last_in_queue;
-// 	  cprintf("TEST2 Thread %d sem %d sem->first_in_queue %d thread->pos %d\n",proc->tid,binary_semaphore_ID,sem->first_in_queue,proc->sem_queue_pos[binary_semaphore_ID]);
-	  continue; //try again before sleeping (prevents deadlock - everybody sleeping)
-	}
+	  //sem->last_in_queue++;
+	  //proc->sem_queue_pos  = sem->last_in_queue;
+// 	  cprintf("TEST2 Thread %d sem %d sem->first_in_queue %d thread->pos %d\n",proc->tid,binary_semaphore_ID,sem->first_in_queue,proc->sem_queue_pos );
+	  //continue; //try again before sleeping (prevents deadlock - everybody sleeping)
 	  sleep(sem,&sem_table.lock);
       }
     }
@@ -461,14 +469,38 @@ binary_semaphore_up(int binary_semaphore_ID){
   acquire(&sem_table.lock);//TODO see if needed
   struct binary_semaphore* sem = &sem_table.binary_semaphore[binary_semaphore_ID];
   if(sem->initialize){     
+    struct proc *p;
+    struct proc* next = 0;
+    //looking for whom to wakeup who are sleeping and next
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if(p != proc && p->wait_for_sem == binary_semaphore_ID)
+      {
+	  p->sem_queue_pos--;
+	  if(p->sem_queue_pos == 0)
+	    next = p;
+      }
+    }
+    if(sem->waiting>0){
+	sem->waiting--;
+    }
+    //wake up the next thread
+    if(next && next->state == SLEEPING)
+      next->state = RUNNABLE;
+    
     sem->value = 1;//sem is available
     sem->first_in_queue++;
+    release(&ptable.lock);
     release(&sem_table.lock);//realsing the sem
-    wakeup1(sem);
+    
+    
+    //wakeup1(sem);
     return 0;
   }
   else{
-    cprintf("we had problem at binary_semaphore_up: the semaphore wasnt initialize\n"); 
+    release(&sem_table.lock);//realsing the sem
+    cprintf("we had problem at binary_semaphore_up: the semaphore wasn't initialize\n"); 
     return -1;
   }
 }
@@ -503,10 +535,29 @@ exit(void)
 
   // Pass abandoned children to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->parent == proc){
+    if(p->pid == proc->pid && p->state != ZOMBIE){ //undead thread
+    p->state = ZOMBIE;
+    
+    if(p->is_thread){//it is a thread
+	  if(p->parent->num_of_thread_child){
+	    p->parent->num_of_thread_child--;
+	  }
+	  if(!p->parent->num_of_thread_child){
+	    wakeup1(p->parent);
+	  }
+	}
+    else{
+     p->num_of_thread_child--;
+     if(!p->num_of_thread_child){
+	 wakeup1(p->parent); 
+      }
+      }
+    }
+    else if(p->parent == proc && p->is_thread !=1){// a proccess child
       p->parent = initproc;
-      if(p->state == ZOMBIE)
+      if(p->state == ZOMBIE){
         wakeup1(initproc);
+      }
     }
   }
   
@@ -524,7 +575,7 @@ wait(void)
 {
   struct proc *p;
   int havekids, pid;
-  
+  int found_p = 0, first_p = 0;
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for zombie children.
@@ -533,21 +584,35 @@ wait(void)
       if(p->parent != proc)
         continue;
       havekids = 1;
-      if(p->state == ZOMBIE){
-	// Found one.
-        pid = p->pid;
-        kfree(p->kstack);
-        p->kstack = 0;
-        freevm(p->pgdir);
-	p->state = UNUSED;
-        p->pid = 0;
-        p->parent = 0;
-        p->name[0] = 0;
-        p->killed = 0;
-        release(&ptable.lock);
-        return pid;
+      if(p->state == ZOMBIE && !p->is_thread && p->num_of_thread_child == 0){
+        found_p = p->pid;
+	break;
       }
+    }
+    if(found_p){ // we found it a zombie procces with zombi kids (adams family)
       
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+	if(p->pid != found_p){
+	  continue;
+	}
+	
+	if(!first_p)
+	{
+	 freevm(p->pgdir);
+	 first_p = 1;
+	}
+	pid = p->pid;
+	kfree(p->kstack);
+	p->kstack = 0;
+	p->state = UNUSED;
+	p->pid = 0;
+	p->parent = 0;
+	p->killed = 0;
+      }
+    }
+    if(found_p){
+      release(&ptable.lock);
+      return pid;
     }
     // No point waiting if we don't have any children.
     if(!havekids || proc->killed){
