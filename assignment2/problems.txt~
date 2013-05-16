@@ -1,3 +1,0 @@
-problems:
-  thread_create does not work good => the process itself jump to printme
-  a process only can "wait" for 1 process in thread_join at the moment
