@@ -1,0 +1,1497 @@
+Index: defs.h
+===================================================================
+--- defs.h	(revision 3)
++++ defs.h	(working copy)
+@@ -116,6 +116,14 @@
+ int             wait(void);
+ void            wakeup(void*);
+ void            yield(void);
++int		thread_create(void*(),void*,uint);
++int		thread_getId(void);
++int		thread_getProcId(void);
++int		thread_join(int, void**);
++void		thread_exit(void*);
++int 		binary_semaphore_create(int);
++int 		binary_semaphore_down(int);
++int 		binary_semaphore_up(int);
+ 
+ // swtch.S
+ void            swtch(struct context**, struct context*);
+Index: boundedbuffer.c
+===================================================================
+--- boundedbuffer.c	(revision 0)
++++ boundedbuffer.c	(revision 0)
+@@ -0,0 +1,77 @@
++#include "boundedbuffer.h"
++#include "types.h"
++#include "user.h"
++
++
++struct BB* 
++BB_create(int max_capacity){
++  //initialize
++  struct BB* buf = malloc(sizeof(struct BB));
++  memset(buf,0,sizeof(struct BB));
++ 
++  buf->buffer_size = max_capacity;
++  buf->mutex = binary_semaphore_create(1);  
++  buf->empty = semaphore_create(max_capacity);
++  buf->full = semaphore_create(0);
++  buf->pointer_to_elements = malloc(sizeof(void*)*max_capacity);
++  memset(buf->pointer_to_elements,0,sizeof(void*)*max_capacity);
++  buf->count = 0;
++  //check the semaphorses
++  if(buf->mutex == -1 || buf->empty == 0 || buf->full == 0){
++   printf(1,"we had a problam getting semaphores at BB create mutex %d empty %d full %d\n",buf->mutex,buf->empty,buf->full);
++   BB_free(buf);
++   
++   buf =0;  
++  }
++  return buf;
++}
++
++void BB_put(struct BB* bb, void* element)
++{ 
++  semaphore_down(bb->empty);
++  binary_semaphore_down(bb->mutex);
++   //insert item
++  bb->pointer_to_elements[bb->count] = element;
++  bb->count++;
++  binary_semaphore_up(bb->mutex);
++  semaphore_up(bb->full);
++}
++
++void* BB_pop(struct BB* bb)
++{
++  
++  void* element_to_pop;
++  semaphore_down(bb->full);
++  binary_semaphore_down(bb->mutex);
++  element_to_pop = bb->pointer_to_elements[0];
++  
++  if(!element_to_pop){
++  printf(1,"we have uninitialize element\n");
++  }
++  
++  // shift left all elements at the array
++  int i;
++  for(i = 0; i < bb->count ; i++){
++    if(i != (bb->count -1)){
++      bb->pointer_to_elements[i] = bb->pointer_to_elements[i+1];
++    }else{
++      bb->pointer_to_elements[i] = 0;
++     }
++     
++  }
++  
++  
++  bb->count--;
++  
++  binary_semaphore_up(bb->mutex);
++  semaphore_up(bb->empty);
++  
++  return element_to_pop;
++}
++
++void BB_free(struct BB* bb){
++  semaphore_free(bb->empty);
++  semaphore_free(bb->full);
++  free(bb->pointer_to_elements);
++  free(bb);
++}
+Index: boundedbuffer.h
+===================================================================
+--- boundedbuffer.h	(revision 0)
++++ boundedbuffer.h	(revision 0)
+@@ -0,0 +1,23 @@
++#include "types.h"
++#include "param.h"
++#include "user.h"
++#include "semaphore.h"
++
++
++
++struct BB {
++volatile int buffer_size;
++volatile int mutex;//protect the CS
++  struct semaphore* empty; // empty slots
++  struct semaphore* full; // full slots
++volatile int count;
++volatile int start;
++volatile int end;
++ void** pointer_to_elements; //need to be at least max_capacity
++};
++
++
++struct BB* BB_create(int max_capacity);
++void BB_put(struct BB* bb, void* element);
++void* BB_pop(struct BB* bb);
++void BB_free(struct BB* bb);
+Index: user.h
+===================================================================
+--- user.h	(revision 3)
++++ user.h	(working copy)
+@@ -22,7 +22,16 @@
+ char* sbrk(int);
+ int sleep(int);
+ int uptime(void);
++int thread_create(void*(*)(),void*,uint);
++int thread_getId(void);
++int thread_getProcId(void);
++int thread_join(int,void**);
++int thread_exit(void*);
++int binary_semaphore_create(int);
++int binary_semaphore_down(int);
++int binary_semaphore_up(int);
+ 
++
+ // ulib.c
+ int stat(char*, struct stat*);
+ char* strcpy(char*, char*);
+Index: Makefile
+===================================================================
+--- Makefile	(revision 3)
++++ Makefile	(working copy)
+@@ -27,6 +27,7 @@
+ 	uart.o\
+ 	vectors.o\
+ 	vm.o\
++	
+ 
+ # Cross-compiling (e.g., on Mac OS X)
+ #TOOLPREFIX = i386-jos-elf-
+@@ -51,8 +52,8 @@
+ endif
+ 
+ # If the makefile can't find QEMU, specify its path here
+-#QEMU = qemu-system-x86_64
+-
++QEMU = qemu-system-x86_64
++QEMU = /usr/bin/qemu-system-i386
+ # Try to infer the correct QEMU
+ ifndef QEMU
+ QEMU = $(shell if which qemu > /dev/null; \
+@@ -132,7 +133,7 @@
+ vectors.S: vectors.pl
+ 	perl vectors.pl > vectors.S
+ 
+-ULIB = ulib.o usys.o printf.o umalloc.o
++ULIB = ulib.o usys.o printf.o umalloc.o semaphore.o boundedbuffer.o
+ 
+ _%: %.o $(ULIB)
+ 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
+@@ -164,9 +165,11 @@
+ 	_usertests\
+ 	_wc\
+ 	_zombie\
++	_threadTest\
++	_Bienstein\
+ 
+-fs.img: mkfs README $(UPROGS)
+-	./mkfs fs.img README $(UPROGS)
++fs.img: mkfs README con.conf $(UPROGS)
++	./mkfs fs.img README con.conf $(UPROGS)
+ 
+ -include *.d
+ 
+@@ -232,7 +235,7 @@
+ 
+ EXTRA=\
+ 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
+-	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
++	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c threadTest.c Beinstein.c\
+ 	printf.c umalloc.c\
+ 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
+ 	.gdbinit.tmpl gdbutil\
+Index: threadTest.c
+===================================================================
+--- threadTest.c	(revision 0)
++++ threadTest.c	(revision 0)
+@@ -0,0 +1,124 @@
++
++
++#include "types.h"
++#include "stat.h"
++#include "user.h"
++//#include "semaphore.h"
++#include "boundedbuffer.h"
++
++#define STACK_SIZE 1024
++#define NUM_OF_PRINTS 3
++
++int the_lock;
++struct semaphore* sem;
++struct BB* buf;
++
++void* printme2(){
++  void* ret_val = 0;
++  printf(1, "thread: %d of process: %d\n", thread_getId(), thread_getProcId());
++  thread_exit(ret_val);
++  return 0;
++}
++
++void task1_test(){
++  int i;
++  void* ret_val;
++  void* current_stack;
++  for(i=0; i < 12; i++){
++      current_stack = (void*)malloc(STACK_SIZE);
++      thread_create((void*)printme2,current_stack,STACK_SIZE);
++  }
++  for(i=1; i < 13; i++){
++   thread_join(i,&ret_val);
++  }
++
++}
++
++void* printme(){
++  int i;
++  for(;;){
++    binary_semaphore_down(the_lock);
++    for(i = 0; i < 3; i++){
++      printf(1, "Process %d Thread %d is running\n", thread_getProcId(),  thread_getId());
++    }
++    binary_semaphore_up(the_lock);
++  }
++  return 0;
++}
++
++void binary_semaphore_test(int num_of_threads){
++  int i;
++  void* current_stack;
++  the_lock = binary_semaphore_create(1);
++  for(i = 0; i < num_of_threads; i++){
++      current_stack = (void*)malloc(STACK_SIZE);
++      thread_create((void*)printme,current_stack,STACK_SIZE);
++  }
++}
++
++void* printme3(){
++  int i;
++  for(;;){
++    semaphore_down(sem);
++    for(i = 0; i < 3; i++){
++      printf(1, "Process %d Thread %d is running\n", thread_getProcId(),  thread_getId());
++    }
++    semaphore_up(sem);
++  }
++  return 0;
++}
++
++void counting_semaphore_test(int num_of_threads){
++  int i;
++  void* current_stack;
++  sem = semaphore_create(1);
++  for(i = 0; i < num_of_threads; i++){
++      current_stack = (void*)malloc(STACK_SIZE);
++      thread_create((void*)printme3,current_stack,STACK_SIZE);
++  }
++}
++
++void* printme4(){
++  void* sheker = 0;
++  for(;;){
++    BB_put(buf,sheker);
++//     printf(1, "Process %d Thread %d puted\n", thread_getProcId(),  thread_getId());
++
++  }
++  return 0;
++}
++
++void* printme5(){
++  for(;;){
++    BB_pop(buf);
++//     printf(1, "Process %d Thread %d poped\n", thread_getProcId(),  thread_getId());
++  }
++  return 0;
++}
++
++void bounded_buffer_test(int num_of_producers,int num_of_consumers){
++  int i;
++  void* current_stack;
++  buf = BB_create(4);
++  for(i = 0; i < num_of_producers; i++){
++      current_stack = (void*)malloc(STACK_SIZE);
++      thread_create((void*)printme4,current_stack,STACK_SIZE);
++  }
++  for(i = 0; i < num_of_consumers; i++){
++      current_stack = (void*)malloc(STACK_SIZE);
++      thread_create((void*)printme5,current_stack,STACK_SIZE);
++  }
++}
++
++int main(int argc, char** argv){
++  //task1_test();
++  int num_of_threads;
++  num_of_threads = atoi(argv[1]);
++  binary_semaphore_test(num_of_threads);
++  //counting_semaphore_test(num_of_threads);
++  //bounded_buffer_test(num_of_threads,num_of_threads);
++  wait(); //main thread should not cross that line (program never finishes)
++  exit();
++  return 1;
++  
++}
+\ No newline at end of file
+
+Property changes on: threadTest.c
+___________________________________________________________________
+Added: svn:executable
+   + *
+
+Index: syscall.c
+===================================================================
+--- syscall.c	(revision 3)
++++ syscall.c	(working copy)
+@@ -98,6 +98,14 @@
+ extern int sys_wait(void);
+ extern int sys_write(void);
+ extern int sys_uptime(void);
++extern int sys_thread_create(void);
++extern int sys_thread_getId(void);
++extern int sys_thread_getProcId(void);
++extern int sys_thread_join(void);
++extern int sys_thread_exit(void);
++extern int sys_binary_semaphore_create(void);
++extern int sys_binary_semaphore_down(void);
++extern int sys_binary_semaphore_up(void);
+ 
+ static int (*syscalls[])(void) = {
+ [SYS_fork]    sys_fork,
+@@ -121,6 +129,14 @@
+ [SYS_link]    sys_link,
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_thread_create] sys_thread_create,
++[SYS_thread_getId] sys_thread_getId,
++[SYS_thread_getProcId] sys_thread_getProcId,
++[SYS_thread_join] sys_thread_join,
++[SYS_thread_exit] sys_thread_exit,
++[SYS_binary_semaphore_create] sys_binary_semaphore_create,
++[SYS_binary_semaphore_down] sys_binary_semaphore_down,
++[SYS_binary_semaphore_up] sys_binary_semaphore_up,
+ };
+ 
+ void
+Index: syscall.h
+===================================================================
+--- syscall.h	(revision 3)
++++ syscall.h	(working copy)
+@@ -21,3 +21,12 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
++
++#define SYS_thread_create 22
++#define SYS_thread_getId 23
++#define SYS_thread_getProcId 24
++#define SYS_thread_join 25
++#define SYS_thread_exit 26
++#define SYS_binary_semaphore_create 27
++#define SYS_binary_semaphore_down 28
++#define SYS_binary_semaphore_up 29
+Index: con.conf
+===================================================================
+--- con.conf	(revision 0)
++++ con.conf	(revision 0)
+@@ -0,0 +1,5 @@
++M = 3
++A = 1
++C = 10
++S = 6
++B = 2
+\ No newline at end of file
+Index: usys.S
+===================================================================
+--- usys.S	(revision 3)
++++ usys.S	(working copy)
+@@ -29,3 +29,11 @@
+ SYSCALL(sbrk)
+ SYSCALL(sleep)
+ SYSCALL(uptime)
++SYSCALL(thread_create)
++SYSCALL(thread_getId)
++SYSCALL(thread_getProcId)
++SYSCALL(thread_join)
++SYSCALL(thread_exit)
++SYSCALL(binary_semaphore_create)
++SYSCALL(binary_semaphore_down)
++SYSCALL(binary_semaphore_up)
+Index: semaphore.c
+===================================================================
+--- semaphore.c	(revision 0)
++++ semaphore.c	(revision 0)
+@@ -0,0 +1,51 @@
++#include "semaphore.h"
++#include "types.h"
++#include "user.h"
++
++
++struct semaphore* semaphore_create(int initial_semaphore_value){
++  struct semaphore* sem=malloc(sizeof(struct semaphore)); 
++  // acquire semaphors
++  sem->s1 = binary_semaphore_create(1);
++  
++  // s2 should be initialized with the min{1,initial_semaphore_value}
++  if(initial_semaphore_value >= 1){
++    sem->s2 = binary_semaphore_create(1);
++  }else{
++    sem->s2 = binary_semaphore_create(initial_semaphore_value);
++  }
++  
++  if(sem->s1 == -1 || sem->s2 == -1){
++     printf(1,"we had a probalem initialize in semaphore_create\n");
++     free(sem);
++     return 0;
++  }
++  //initialize value
++  sem->value = initial_semaphore_value;//dynamic
++  sem->initial_value = initial_semaphore_value;//static
++  
++  return sem;
++}
++void semaphore_down(struct semaphore* sem ){
++  binary_semaphore_down(sem->s2);
++  binary_semaphore_down(sem->s1);
++  sem->value--;	
++  if(sem->value > 0){
++   binary_semaphore_up(sem->s2);
++  }
++  binary_semaphore_up(sem->s1); 
++}
++void semaphore_up(struct semaphore* sem ){
++  binary_semaphore_down(sem->s1);
++  sem->value++;	
++  if(sem->value ==1){
++   binary_semaphore_up(sem->s2); 
++   }
++  binary_semaphore_up(sem->s1);
++}
++
++void semaphore_free(struct semaphore* sem){
++  free(sem);
++}
++
++
+Index: semaphore.h
+===================================================================
+--- semaphore.h	(revision 0)
++++ semaphore.h	(revision 0)
+@@ -0,0 +1,18 @@
++#include "types.h"
++#include "mmu.h"
++#include "param.h"
++#include "proc.h"
++#include "user.h"
++
++
++struct semaphore {
++  int s1;//semaphore 1 id
++  int s2;//semaphore 2 id	  
++  int value;
++  int initial_value;
++};
++
++struct semaphore* semaphore_create(int initial_semaphore_value);
++void semaphore_down(struct semaphore* sem);
++void semaphore_up(struct semaphore* sem);
++void semaphore_free(struct semaphore* sem);
+Index: sysproc.c
+===================================================================
+--- sysproc.c	(revision 3)
++++ sysproc.c	(working copy)
+@@ -88,3 +88,66 @@
+   release(&tickslock);
+   return xticks;
+ }
++
++int
++sys_thread_create(void)
++{
++  char* start_func;
++  char* stack;
++  int stack_size;
++  argptr(0,&start_func,sizeof(start_func));
++  argptr(1,&stack,sizeof(stack));
++  argint(2,&stack_size);
++  return thread_create((void*(*)())start_func,(void*)stack,(uint)stack_size);
++}
++
++int
++sys_thread_getId(void)
++{
++    return thread_getId();
++}
++
++int
++sys_thread_getProcId(void)
++{
++    return thread_getProcId();
++}
++
++int
++sys_thread_join(void)
++{
++  int thread_id;  
++  char* ret_val;
++  argint(0,&thread_id);
++  argptr(1,&ret_val,sizeof(ret_val));
++  return thread_join(thread_id,(void**)&ret_val);
++}
++
++int
++sys_thread_exit(void)
++{
++    char* ret_val;
++    argptr(0,&ret_val,sizeof(ret_val));
++    thread_exit((void*)ret_val);
++    return 0; // not reached
++}
++
++int 
++sys_binary_semaphore_create(void){
++  int initial_value;
++  argint(0,&initial_value);
++  return binary_semaphore_create(initial_value);
++}
++
++int 
++sys_binary_semaphore_down(void){
++   int binary_semaphore_ID;
++  argint(0,&binary_semaphore_ID);
++  return binary_semaphore_down(binary_semaphore_ID);
++}
++int 
++sys_binary_semaphore_up(void){
++   int binary_semaphore_ID;
++  argint(0,&binary_semaphore_ID);
++  return binary_semaphore_up(binary_semaphore_ID);
++}
+Index: proc.c
+===================================================================
+--- proc.c	(revision 3)
++++ proc.c	(working copy)
+@@ -7,14 +7,27 @@
+ #include "proc.h"
+ #include "spinlock.h"
+ 
++#define NUM_OF_SEMAPHORES 128
++
+ struct {
+   struct spinlock lock;
+   struct proc proc[NPROC];
+ } ptable;
+ 
++
++
++
++struct {
++  struct spinlock lock;
++  int next_sem;
++  struct binary_semaphore binary_semaphore[NUM_OF_SEMAPHORES];
++  struct spinlock sem_locks[NUM_OF_SEMAPHORES];
++} sem_table;
++
+ static struct proc *initproc;
+ 
+ int nextpid = 1;
++int nexttid = 1;
+ extern void forkret(void);
+ extern void trapret(void);
+ 
+@@ -23,7 +36,13 @@
+ void
+ pinit(void)
+ {
++ 
+   initlock(&ptable.lock, "ptable");
++  initlock(&sem_table.lock, "sem_table"); // initial sem_table lock
++  //int i;
++  //for(i = 0; i<NUM_OF_SEMAPHORES ; i++){	// initialize every semaphore lock in sem_table
++    //  initlock(&sem_table.binary_semaphore[i].lock,"semaphore");
++  //}
+ }
+ 
+ //PAGEBREAK: 32
+@@ -69,10 +88,14 @@
+   p->context = (struct context*)sp;
+   memset(p->context, 0, sizeof *p->context);
+   p->context->eip = (uint)forkret;
+-
++  p->is_thread = 0;
++  p->thread_joined = -1;
++  p->num_of_thread_child =1;
++  p->wait_for_sem = -1;
+   return p;
+ }
+ 
++
+ //PAGEBREAK: 32
+ // Set up first user process.
+ void
+@@ -153,13 +176,267 @@
+     if(proc->ofile[i])
+       np->ofile[i] = filedup(proc->ofile[i]);
+   np->cwd = idup(proc->cwd);
+- 
++  np->tid = 0;
++  np->thread_joined =0;
+   pid = np->pid;
+   np->state = RUNNABLE;
+   safestrcpy(np->name, proc->name, sizeof(proc->name));
+   return pid;
+ }
+ 
++int
++thread_create(void*(*start_func)(), void* stack, uint stack_size)
++{
++  int tid,i;
++  struct proc *np;
++
++  // Allocate process.
++  if((np = allocproc()) == 0)//tid was update in thread_allocproc
++    return -1;
++
++  np->pid = proc->pid;//copy brother id
++  // Copy process state from p.
++  np->pgdir = proc->pgdir;
++  np->sz = proc->sz;
++  if(proc->is_thread){//if the thread create thread then both have the same father
++    np->parent = proc->parent;
++  }
++  else{//if procces create thread then it is his father
++    np->parent = proc;
++  }
++  acquire(&ptable.lock);
++  np->parent->num_of_thread_child++;
++  np->tid =nexttid++;
++  release(&ptable.lock);
++  np->is_thread = 1;
++  np->thread_joined = 0;
++  //np->tid = ++(np->parent->tid);
++ 
++  *np->tf = *proc->tf;
++  // Clear %eax so that fork returns 0 in the child.
++  np->tf->eax = 0;
++  np->tf->esp = (uint)stack+stack_size;
++  np->tf->eip = (uint)start_func;
++  //np->ofile = (struct file *)proc->ofile;
++  for(i = 0; i < NOFILE; i++){
++    if(proc->ofile[i]){
++      np->ofile[i] = filedup(proc->ofile[i]);
++    }
++  }
++  
++  np->cwd = proc->cwd;
++  tid = np->tid;
++  np->state = RUNNABLE;
++  safestrcpy(np->name, proc->name, sizeof(proc->name));
++  return tid;
++}
++
++int thread_getId(){
++  if(proc && proc->is_thread){
++    return proc->tid;
++  }
++  else{
++    cprintf("proccees %d asked for theard_id\n",proc->pid); 
++    return -1;
++  }
++  
++}
++
++int thread_getProcId(){
++  if(proc){
++    return proc->pid;  
++  }
++  else{
++      cprintf("proccees 0 tried to do thread_getProcId\n"); 
++    return -1;
++  }
++}
++
++int thread_join(int thread_id, void** ret_val){ 
++  struct proc *p;
++  int found = 0;
++  acquire(&ptable.lock);
++    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
++      if(p != proc && p->pid == proc->pid && p->is_thread && p->tid == thread_id){ //this is the thread we were looking for
++	if(p->thread_joined){
++	  cprintf("Thread %d was called thread_join from Process %d but real parent was %d\n",p->tid,proc->pid,p->parent->pid); 
++	  release(&ptable.lock);
++	  return -2;
++	 }	
++	
++	if(p->state == ZOMBIE){//everything is cool
++	  //*ret_val =  (void*)p->tf->eax;
++	  ret_val =  &(p->ret_val);
++	  release(&ptable.lock);
++	  return 0;
++	}
++	found = 1;
++	p->thread_joined = 1;
++	break;
++      }
++    }
++    if(!found){
++	cprintf("Thread %d from Process %d was not able to joined\n",p->tid,p->parent->pid); 
++	release(&ptable.lock);
++	return -1;
++    }else{
++	//current process wait for thread to terminate
++	sleep(p,&ptable.lock);
++	release(&ptable.lock);
++	found = 0;
++    }
++  return 0;
++}
++
++
++void 
++thread_exit(void * ret_val){
++  acquire(&ptable.lock);
++  
++  if(proc->is_thread){//not the main procces
++    if(proc->parent->num_of_thread_child==1){//the main thread already thread_exit and also all other thread
++      proc->parent->num_of_thread_child--;
++      release(&ptable.lock);
++      exit();
++    }
++    
++    
++  //this is not the last thread by any mean
++    proc->ret_val = ret_val;			// not main thread and not the last one
++    proc->parent->num_of_thread_child--;
++    proc->state = ZOMBIE;
++    if(proc->thread_joined){
++      wakeup1(proc);
++    }
++    sched();
++    release(&ptable.lock);
++  }
++    
++  else if (proc->num_of_thread_child == 1){//this is the main thread and it is the last thread
++    proc->num_of_thread_child--;
++    release(&ptable.lock);
++    exit();
++  }
++  
++  
++  else{//this is the main thread but other thread are alive
++    proc->num_of_thread_child--;
++    proc->state = ZOMBIE;
++    sched();
++    release(&ptable.lock);
++  }
++}
++
++int 
++binary_semaphore_create(int initial_value){//#####################################################################################
++  struct binary_semaphore* sem;
++  int i=0;
++  acquire(&sem_table.lock);
++ for(i=0;i<NUM_OF_SEMAPHORES;i++){
++    sem = &sem_table.binary_semaphore[i];
++    if(sem->initialize){//if the semaphore is taken
++      continue;
++    }
++    sem->initialize = 1;
++    initlock(&sem_table.sem_locks[i],"binary_semaphore");
++    sem->value = initial_value;
++    sem->first_in_queue = 0;
++    sem->last_in_queue = 0;
++    release(&sem_table.lock);
++    return i;
++  }
++  cprintf("we had problem at binary_semaphore_create\n"); 
++  release(&sem_table.lock);
++  return -1;
++}
++/*
++ * this thread wants the semaphore
++ * if its 0 then the thread does to sleep
++ * else take it
++ */
++int 
++binary_semaphore_down(int binary_semaphore_ID){
++   
++   struct binary_semaphore* sem = &sem_table.binary_semaphore[binary_semaphore_ID] ;
++   acquire(&sem_table.sem_locks[binary_semaphore_ID]);
++  
++  
++  
++  //give the new thread a place in queue
++  if(sem->waiting){
++    proc->sem_queue_pos = ++(sem->waiting);
++  }
++  
++  for(;;){
++    if(sem->initialize){
++      if(sem->value && !proc->sem_queue_pos){//the sem is not locked && the thread is the next one
++	sem->value = 0;//sem is locked
++	proc->wait_for_sem = -1;//done waiting 
++	release(&sem_table.sem_locks[binary_semaphore_ID]);
++	return 0;
++      }
++      else{//the sem is locked or this is this the first time for this thread
++	  if(proc->sem_queue_pos<=0){
++	    proc->sem_queue_pos = ++(sem->waiting);
++	  }
++	  proc->wait_for_sem = binary_semaphore_ID;
++	  sleep(sem,&sem_table.sem_locks[binary_semaphore_ID]);
++      }
++    }
++    else{
++      cprintf("we had problem at binary_semaphore_down: the semaphore wasnt initialize\n"); 
++      release(&sem_table.sem_locks[binary_semaphore_ID]);
++      return -1;
++    }
++  }
++}
++/*
++ * we want to realse the semaphore
++ * if somebody else want it, we wake them up by its queue place
++ */
++
++
++int
++binary_semaphore_up(int binary_semaphore_ID){
++  acquire(&sem_table.sem_locks[binary_semaphore_ID]);
++  struct binary_semaphore* sem = &sem_table.binary_semaphore[binary_semaphore_ID];
++  if(sem->initialize){   
++    struct proc *p;
++    struct proc* next = 0;
++    //looking for whom to wakeup who are sleeping and next
++    acquire(&ptable.lock);
++    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
++      if(p != proc && p->wait_for_sem == binary_semaphore_ID){
++	  p->sem_queue_pos--;
++	  if(p->sem_queue_pos == 0)
++	    next = p;
++      }
++    }
++    
++     
++    if(sem->waiting>0){
++	sem->waiting--;
++    }
++    sem->value = 1;//sem is available
++    
++    //wake up the next thread
++    if(next && next->state == SLEEPING)
++      next->state = RUNNABLE;
++    
++    release(&ptable.lock);
++    release(&sem_table.sem_locks[binary_semaphore_ID]);//realsing the sem
++    
++    
++    wakeup1(sem);
++    return 0;
++  }
++  else{
++    release(&sem_table.sem_locks[binary_semaphore_ID]);//realsing the sem
++    cprintf("we had problem at binary_semaphore_up: the semaphore wasn't initialize\n"); 
++    return -1;
++  }
++}
++
+ // Exit the current process.  Does not return.
+ // An exited process remains in the zombie state
+ // until its parent calls wait() to find out it exited.
+@@ -190,13 +467,33 @@
+ 
+   // Pass abandoned children to init.
+   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+-    if(p->parent == proc){
++    if(p->pid == proc->pid && p->state != ZOMBIE){ //undead thread
++    p->state = ZOMBIE;
++    
++    if(p->is_thread){//it is a thread
++	  if(p->parent->num_of_thread_child){
++	    p->parent->num_of_thread_child--;
++	  }
++	  //no more childran
++	  if(!p->parent->num_of_thread_child){
++	    wakeup1(p->parent->parent);
++	  }
++	}
++    else{//it is a proccees
++      p->num_of_thread_child--;
++      if(!p->num_of_thread_child){
++	 wakeup1(p->parent); 
++      }
++     }
++    }
++    else if(p->parent == proc && p->is_thread !=1){// a proccess child
+       p->parent = initproc;
+-      if(p->state == ZOMBIE)
++      if(p->state == ZOMBIE){
+         wakeup1(initproc);
++      }
+     }
+   }
+-
++  
+   // Jump into the scheduler, never to return.
+   proc->state = ZOMBIE;
+   sched();
+@@ -210,7 +507,7 @@
+ {
+   struct proc *p;
+   int havekids, pid;
+-
++  int found_p = 0, first_p = 0;
+   acquire(&ptable.lock);
+   for(;;){
+     // Scan through table looking for zombie children.
+@@ -219,28 +516,41 @@
+       if(p->parent != proc)
+         continue;
+       havekids = 1;
+-      if(p->state == ZOMBIE){
+-        // Found one.
+-        pid = p->pid;
+-        kfree(p->kstack);
+-        p->kstack = 0;
+-        freevm(p->pgdir);
+-        p->state = UNUSED;
+-        p->pid = 0;
+-        p->parent = 0;
+-        p->name[0] = 0;
+-        p->killed = 0;
+-        release(&ptable.lock);
+-        return pid;
++      if(p->state == ZOMBIE && !p->is_thread && p->num_of_thread_child == 0){
++        found_p = p->pid;
++	break;
+       }
+     }
++    if(found_p){ // we found it a zombie procces with zombi kids (adams family)
++      
++      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
++	if(p->pid != found_p){
++	  continue;
++	}
+ 
++	if(!first_p)
++	{
++	 freevm(p->pgdir);
++	 first_p = 1;
++	}
++	pid = p->pid;
++	kfree(p->kstack);
++	p->kstack = 0;
++	p->state = UNUSED;
++	p->pid = 0;
++	p->parent = 0;
++	p->killed = 0;
++      }
++    }
++    if(found_p){
++      release(&ptable.lock);
++      return pid;
++    }
+     // No point waiting if we don't have any children.
+     if(!havekids || proc->killed){
+       release(&ptable.lock);
+       return -1;
+     }
+-
+     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+     sleep(proc, &ptable.lock);  //DOC: wait-sleep
+   }
+@@ -275,7 +585,7 @@
+ scheduler(void)
+ {
+   struct proc *p;
+-
++  
+   for(;;){
+     // Enable interrupts on this processor.
+     sti();
+@@ -292,6 +602,7 @@
+       proc = p;
+       switchuvm(p);
+       p->state = RUNNING;
++      
+       swtch(&cpu->scheduler, proc->context);
+       switchkvm();
+ 
+@@ -330,6 +641,7 @@
+ {
+   acquire(&ptable.lock);  //DOC: yieldlock
+   proc->state = RUNNABLE;
++  //cprintf("YIELD pid %d\n",proc->pid);
+   sched();
+   release(&ptable.lock);
+ }
+@@ -359,6 +671,7 @@
+ void
+ sleep(void *chan, struct spinlock *lk)
+ {
++
+   if(proc == 0)
+     panic("sleep");
+ 
+@@ -375,15 +688,14 @@
+     acquire(&ptable.lock);  //DOC: sleeplock1
+     release(lk);
+   }
+-
+   // Go to sleep.
+   proc->chan = chan;
+   proc->state = SLEEPING;
++  //cprintf("SLEEP pid %d\n",proc->pid);
+   sched();
+-
+   // Tidy up.
+   proc->chan = 0;
+-
++  
+   // Reacquire original lock.
+   if(lk != &ptable.lock){  //DOC: sleeplock2
+     release(&ptable.lock);
+@@ -471,6 +783,4 @@
+     }
+     cprintf("\n");
+   }
+-}
+-
+-
++}
+\ No newline at end of file
+Index: proc.h
+===================================================================
+--- proc.h	(revision 3)
++++ proc.h	(working copy)
+@@ -16,6 +16,14 @@
+   struct proc *proc;           // The currently-running process.
+ };
+ 
++struct binary_semaphore{
++ int value;//0 is locked, 1 is free
++ int initialize;//if > 0 then the semaphore was initialize
++ int waiting;//how meny are sleeping on this semaphore
++ int first_in_queue; //place of first
++ int last_in_queue; //place of last
++} binary_semaphore;
++
+ extern struct cpu cpus[NCPU];
+ extern int ncpu;
+ 
+@@ -49,8 +57,14 @@
+   uint eip;
+ };
+ 
+-enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
++// States of process:
++// 		{ UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE }
++// States of thread:
++//		{ RUNNING, READY, BLOCKED, TERMINATED } 
+ 
++enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE , READY, BLOCKED, TERMINATED };
++
++
+ typedef void (*sighandler_t)(void);
+ 
+ // Per-process state
+@@ -66,12 +80,22 @@
+   void *chan;                  // If non-zero, sleeping on chan
+   int killed;                  // If non-zero, have been killed
+   struct file *ofile[NOFILE];  // Open files
++  struct file *temp_ofile;     //temp files for deletion ###########on thread create we point it to ofile, on thread_exit we point ofile back ti temp_ofile 
+   struct inode *cwd;           // Current directory
+   char name[16];               // Process name (debugging)
++  int is_thread;		// Is the process a thread: 0 => process is not a thread. 1 => process is a thread.
++  int thread_joined;		// Identifier of the thread that needs to be waited for. Initialized to -1 => no thread to wait for
++  int tid;			//all thread from same father have special id
++  int wait_for_sem;		//the Id of semaphore this thread is waiting for
++  //int sem_queue_pos[128];	// while waiting to a semaphore, this is the place in queue (array of semaphores to wait at)
++  void* ret_val;		// thread return value
++  int sem_queue_pos;		// while waiting to a semaphore, this is the place in queue 
++  int num_of_thread_child;	//number of thread made by that process
++  
+ };
+ 
+ // Process memory is laid out contiguously, low addresses first:
+ //   text
+ //   original data and bss
+ //   fixed-size stack
+-//   expandable heap
++//   expandable heap
+\ No newline at end of file
+Index: Beinstein.c
+===================================================================
+--- Beinstein.c	(revision 0)
++++ Beinstein.c	(revision 0)
+@@ -0,0 +1 @@
++printf(1,"Hello world\n");
+\ No newline at end of file
+Index: Bienstein.c
+===================================================================
+--- Bienstein.c	(revision 0)
++++ Bienstein.c	(revision 0)
+@@ -0,0 +1,362 @@
++#include "fcntl.h"
++#include "boundedbuffer.h"
++#include "types.h"
++#include "user.h"
++#include "stat.h"
++
++
++#define STACK_SIZE 1024
++enum action_type { UNDEFINED, DRINK_ORDER, RETURN_CUP, GO_HOME};
++
++typedef struct Cup{
++  int id;
++}Cup;
++
++typedef struct Action {
++  int action_type;
++  Cup* cup;
++  int tid;
++}Action;
++
++struct semaphore* bouncer; //this is the bouncer to the Beinstein
++struct BB* ABB; //this is a BB for student actions: drink, ans for a dring
++struct BB* DrinkBB; //this is a BB holding the drinks that are ready to be drinking
++struct BB* CBB; //this is a BB hold clean cups
++struct BB* DBB; //this is a BB hold dirty cups
++int file_to_write; //file descriptor to write to
++int cup_boy_lock; //a lock for the cup boy to sleep on (binary semaphore)
++int finished_shift;//TODO clean it
++int general_mutex;
++
++// Used to allow students to enter the bar, and thus is
++// called by the students. If the bar is full (the semaphore’s value is 0), 
++// the student should wait until another student leaves the bar and frees up space. 
++void enter_bar(){
++  semaphore_down(bouncer);
++}
++
++// Used to allow students to leave the bar once they are drunk, 
++// and thus is called by the students. 
++// When a student leaves the bar, he frees up a place for another student to enter.
++void leave_bar(){
++  semaphore_up(bouncer);
++}
++
++// This function is called by a student whenever he wants to perform an action:
++// place an order for a drink from the bar or return a dirty cup. 
++// The action is placed at the end of the buffer.
++void place_action(Action* action){
++  BB_put(ABB,action);
++}
++
++// This function is called by a bartender whenever one is free to deal with students’ actions. 
++// The Action located at the beginning of the buffer is returned and removed. 
++// If there are no actions, the bartender will wait until more actions arrive.
++Action* get_action(){
++  return BB_pop(ABB);
++}
++
++// This function is called by the bartender whenever he finishes to make a drink (ordered by a student). 
++// The cup the drink is made in is placed in the DrinkBB.
++void serve_drink(Cup* cup){
++  BB_put(DrinkBB,cup);
++} 
++
++// This function is called by a student after he places an order for a drink, 
++// while he waits for his order to be made. 
++// If there is a drink ready in the buffer, he will take it (denoted by the cup the drink was made in). 
++// If not, he will wait until a drink becomes available
++Cup* get_drink(){
++  return BB_pop(DrinkBB);
++}
++
++// This function is called by a bartender whenever he wishes to make a drink and needs a clean cup for it. 
++// If there are no clean cups left, the bartender should wait until the cup boy returns with clean cups.
++Cup* get_clean_cup(){
++  return BB_pop(CBB);
++}
++
++// This function is called by the cup boy when he wishes to add a clean cup he just washed.
++void add_clean_cup(Cup* cup){
++  BB_put(CBB,cup);
++}
++
++// This function is called by a bartender whenever a student finished to drink his drink
++// and wishes to return the cup used (i.e when the type of the action the bartender received from 
++// ABB is 2 - returning a dirty cup). 
++// If at least 60% of the cups are dirty, the cup boy will be notified.
++void return_cup(Cup* cup){
++  BB_put(DBB,cup);
++}
++
++// This function will be called by the cup boy when he wishes to get a dirty cup to clean. 
++Cup* wash_dirty(){
++  return BB_pop(DBB);
++}
++
++// student simulation
++void* student(){
++   
++
++    enter_bar();
++    int tid = thread_getId();
++    int i;
++    for(i = 0; i < tid % 5; i++){
++      struct Action* drink_action = malloc(sizeof(struct Action));
++      memset(drink_action,0,sizeof(struct Action));
++      drink_action->action_type = DRINK_ORDER;
++      drink_action->cup = 0;
++      drink_action->tid = tid;
++      place_action(drink_action);//Order a Drink
++      struct Cup * cup = get_drink();	//get the drink from the BB
++      //need to write to file intsead of screen TODO
++      printf(file_to_write,"Student %d is having his %d drink, with cup %d\n",tid,i+1,cup->id);
++      sleep(1);
++      struct Action* return_action = malloc(sizeof(struct Action));
++      memset(return_action,0,sizeof(struct Action));
++      return_action->action_type = RETURN_CUP;
++      return_action->cup=cup;
++      return_action->tid = tid;
++      place_action(return_action);
++    }
++    //need to write to file intsead of screen TODO
++    printf(file_to_write,"Student %d is drunk, and trying to go home\n",thread_getId());
++    leave_bar();
++    thread_exit(0);
++    return 0;
++}
++
++//bartender simulation
++void* bartender(){
++    void* ret_val = 0;
++    int tid = thread_getId();
++    double amount =0;
++    double buf_size =0;
++    for(;;){
++	struct Action* bartender_action = get_action();	
++	if(bartender_action->action_type == DRINK_ORDER){
++	    struct Cup* current_cup = get_clean_cup();
++	    //need to write to file intsead of screen TODO
++	    printf(file_to_write,"Bartender %d is making drink with cup %d\n",tid,current_cup->id);
++	    serve_drink(current_cup);
++	}
++	else if(bartender_action->action_type == RETURN_CUP){
++	  struct Cup* current_cup = bartender_action->cup;  
++	  return_cup(current_cup);
++	  //need to write to file intsead of screen TODO
++	  printf(file_to_write,"Bartender %d returned cup %d\n",tid,current_cup->id);
++	  
++	  amount = DBB->full->value;
++	  buf_size = DBB->buffer_size;
++	  
++	  if(amount/buf_size >= 0.6){
++	    binary_semaphore_up(cup_boy_lock);
++	    }
++	if(bartender_action->action_type == GO_HOME){
++	  free(bartender_action);
++	  thread_exit(ret_val);
++	}
++      }
++	free(bartender_action);
++    }
++    return 0;
++}
++
++
++// Cup boy simulation
++void* cup_boy(void){
++  void* ret_val = 0;
++  cup_boy_lock = binary_semaphore_create(0);
++  int i,n;
++  for(;;){
++    if(finished_shift){
++      thread_exit(ret_val);
++    }
++
++    n =DBB->full->value;
++   
++    
++    for(i = 1; i < n; i++){
++	struct Cup* current_cup = wash_dirty();
++	sleep(1);
++	add_clean_cup(current_cup);
++	//need to write to file intsead of screen TODO
++	printf(file_to_write,"Cup boy added clean cup %d\n",current_cup->id);
++    }
++   binary_semaphore_down(cup_boy_lock); 
++  }
++  return ret_val;
++}
++
++// thread_joins on students and bartenders
++
++void join_peoples(int* tids,int num_of_peoples){
++  void* ret_val;
++  int i;
++  for(i = 0; i < num_of_peoples; i++){
++    thread_join(tids[i],&ret_val);
++  }
++}
++
++
++//return the index to put the value {A, B, C, S, M}
++//				     {0, 1, 2, 3, 4}
++int values_array_index(char* input_buf, int char_index){
++ if(input_buf[char_index] == 'A')
++   return 0;
++ if(input_buf[char_index] == 'B')
++   return 1;
++ if(input_buf[char_index] == 'C')
++   return 2;
++ if(input_buf[char_index] == 'S')
++   return 3;
++ if(input_buf[char_index] == 'M')
++   return 4;
++ //error
++ return -1;
++}
++
++//parsing the configuration file
++void parse_buffer(char* input_buf,int* values_array){
++ int i;
++ int num_of_chars = strlen(input_buf);
++ int index;
++ char* temp_str;
++ for(i = 0;i < num_of_chars; i++){
++    if(input_buf[i] == 'A' || input_buf[i] == 'B' || input_buf[i] == 'C' || input_buf[i] == 'S' || input_buf[i] == 'M'){
++       index = values_array_index(input_buf,i);
++       temp_str = &input_buf[i];
++       values_array[index] = atoi(temp_str+4);
++    }
++ }
++}
++
++
++int main(int argc, char** argv) {
++  //variables
++  int A;	// number of slots to Actions that can be received
++  int B;	// number of bartenders 
++  int C;	// number of cups
++  int S;	// number of students
++  int M;	// maximum number of students that can be at the bar at once
++  int fconf;
++  int conf_size;
++  struct stat bufstat;
++  
++  fconf = open("con.conf",O_RDONLY);
++  fstat(fconf,&bufstat);
++  conf_size = bufstat.size;
++  char bufconf[conf_size];
++  read(fconf,bufconf,conf_size);
++  int inputs_parsed[5]; //{Aval, Bval, Cval, Sval, Mval}
++  
++  parse_buffer(bufconf, inputs_parsed);
++  A = inputs_parsed[0];
++  B = inputs_parsed[1];
++  C = inputs_parsed[2];
++  S = inputs_parsed[3];
++  M = inputs_parsed[4];
++  
++  printf(file_to_write,"A: %d B: %d C: %d  S: %d M: %d\n",A,B,C,S,M);
++  
++  void* students_stacks[S];
++  void* bartenders_stacks[B];
++  void* cup_boy_stack;
++  int i;
++  int student_tids[S];
++  //int bartender_tids[B];
++  finished_shift = 0; // cup_boy changes it to 1 if all students left the bar and sends Action => GO_HOME to bartenders
++
++  
++  file_to_write = open("out.txt",(O_CREATE | O_WRONLY)); //
++  if(file_to_write == -1){
++      printf(1,"There was an error opening out.txt\n");
++      exit();
++  }
++  
++  
++  //Databases
++   bouncer = semaphore_create(M);		//this is the bouncer to the Beinstein
++   ABB = BB_create(A); 				//this is a BB for student actions: drink, ans for a dring
++   DrinkBB = BB_create(A);			//this is a BB holding the drinks that are ready to be drinking
++   CBB = BB_create(C);				//this is a BB hold clean cups
++   DBB = BB_create(C);				//this is a BB hold dirty cups
++   cup_boy_lock = binary_semaphore_create(0); 	// initial cup_boy with 0 so he goes to sleep imidietly on first call to down
++   general_mutex = binary_semaphore_create(1);
++
++   //initialize C clean cups
++   struct Cup* cup_array[C];
++   for(i = 0; i < C; i++){
++      cup_array[i] = malloc(sizeof(struct Cup)); //TODO free cups
++      //memset(cup_array[i],0,sizeof(void*)*STACK_SIZE);
++      cup_array[i]->id = i;
++      add_clean_cup(cup_array[i]);
++   }
++   
++   //initialize cup_boy
++   cup_boy_stack = (void*)malloc(sizeof(void*)*STACK_SIZE);
++   memset(cup_boy_stack,0,sizeof(void*)*STACK_SIZE);
++   if(thread_create((void*)cup_boy,cup_boy_stack,sizeof(void*)*STACK_SIZE) < 0){
++     printf(2,"Failed to create cupboy thread. Exiting...\n");
++    exit();
++   }
++   
++   //initialize B bartenders
++   for(i = 0; i < B; i++){
++      bartenders_stacks[i] = (void*)malloc(sizeof(void*)*STACK_SIZE);
++      memset(bartenders_stacks[i],0,sizeof(void*)*STACK_SIZE);
++     thread_create((void*)bartender,bartenders_stacks[i],sizeof(void*)*STACK_SIZE);//TODO test
++      //bartender_tids[i] = 
++  }
++   
++   //initialize S students
++   for(i = 0; i < S; i++){//TODO test for fail
++      students_stacks[i] = malloc(sizeof(void*)*STACK_SIZE);
++      memset(students_stacks[i],0,sizeof(void*)*STACK_SIZE);
++      student_tids[i] = thread_create((void*)student,students_stacks[i],sizeof(void*)*STACK_SIZE);
++  }
++  
++   join_peoples(student_tids,S); //join students
++   finished_shift = 1;
++    
++    
++   //join_peoples(bartender_tids,B); //join bartenders
++   sleep(2); // delay so exit will not come before threads finished TODO (need better soloution)
++   
++   
++   if(finished_shift){
++      binary_semaphore_up(cup_boy_lock); 
++    }
++    
++    
++   if(close(file_to_write) == -1){
++    printf(1,"There was an error closing out.txt\n");
++    exit();
++   }
++   
++  //free cup_boy_stack
++  free(cup_boy_stack);
++  
++  //after all students have finished need to exit all bartenders and cup boy, and free all memory allocation
++  //free cups
++  for(i = 0; i < C; i++){
++    free(cup_array[i]);
++  }
++
++  //free bartenders_stacks
++  for(i = 0; i < B; i++){
++   free(bartenders_stacks[i]); 
++  }
++  //free students_stacks
++  for(i = 0; i < S; i++){
++   free(students_stacks[i]); 
++  }
++  semaphore_free(bouncer);
++  BB_free(ABB);
++  BB_free(DrinkBB);
++  BB_free(CBB);
++  BB_free(DBB);
++ 
++  exit();
++  return 0;
++}
+\ No newline at end of file
