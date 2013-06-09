@@ -924,10 +924,9 @@ int num_of_pages(int proc_pid){
 
 int shmget(int key, uint size, int shmflg){
   int rounded_size;
-  struct shmobj newShmObj;
   acquire(&shmtable.lock);
   if(shmflg == GET){
-   if((!&shmtable.shmarray[key])||shmtable.shmarray[key].shmstate == UNINITIALIZED){ //no shared memory object with that key
+   if(shmtable.shmarray[key].shmstate == UNINITIALIZED){ //no shared memory object with that key
     cprintf("shmget(GET)-shmarray failure\n");
     release(&shmtable.lock);
     return -1; 
@@ -948,12 +947,12 @@ int shmget(int key, uint size, int shmflg){
     rounded_size = PGROUNDUP(size);
     shmtable.shmarray[key].size = rounded_size;
     shmtable.shmarray[key].shmstate = UNLINKED;
-    shmtable.shmarray[key] = newShmObj;
+    //shmtable.shmarray[key] = newShmObj;
     for(k = 0; k < rounded_size; k+= PGSIZE){
 	if(!(shmtable.shmarray[key].addr[i] = kalloc())){
 	cprintf("shmget(create)-kalloc failure\n");
 	}
-	newShmObj.pages_amount++;
+	shmtable.shmarray[key].pages_amount++;
 	i++;
     }
     
@@ -1009,7 +1008,7 @@ void *shmat(int shmid, int shmflg){
   int flag_for =0;
   acquire(&shmtable.lock);
   //TODO test this if
-  if(shmtable.shmarray[shmid] && shmtable.shmarray[shmid].size > 0){
+  if(shmtable.shmarray[shmid].size > 0){
     size = PGROUNDUP(proc->sz);
     ret =(void*)size;
     if(size + PGSIZE >= KERNBASE){
