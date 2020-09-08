@@ -137,3 +137,9 @@ brelse(struct buf *b)
   release(&bcache.lock);
 }
 
+// i add this comment for my lab
+//sample text
+//aljkjkladfsj;kladfsjklad;fsjkdslaf;
+//hjafjfk/ljksafdfjkd
+//lfj;ad/hkasf
+//akjs/dfla
